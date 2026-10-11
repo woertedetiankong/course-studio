@@ -28,7 +28,7 @@ button{font:inherit; color:inherit; cursor:pointer; background:none; border:0; p
 code,.mono{font-family:var(--f-code); font-size:.86em}
 
 /* masthead */
-.mast{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:20px 32px; align-items:end}
+.mast{display:grid; grid-template-columns:minmax(min(100%,380px),1fr) minmax(0,auto); gap:20px 32px; align-items:end}
 .mast .course{font-size:13px; color:var(--mute)}
 .mast .course a{color:var(--ink-2); text-decoration:none}
 .mast .course a:hover{color:var(--ink); text-decoration:underline}
@@ -38,7 +38,7 @@ code,.mono{font-family:var(--f-code); font-size:.86em}
 .lang span.on{background:var(--ink); color:var(--sheet)}
 .mast h1{font:900 44px/1.1 var(--f-display); letter-spacing:.02em}
 .mast p{color:var(--ink-2); max-width:62ch; margin-top:6px}
-.eps{display:flex; gap:8px; flex-wrap:wrap}
+.eps{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end}
 .ep{display:grid; grid-template-columns:auto auto; align-items:center; gap:0 12px; padding:10px 16px 10px 12px; border:1.5px solid var(--line); border-radius:6px; background:var(--sheet); text-align:left}
 .ep b{font:900 30px/1 var(--f-display); color:var(--mute); grid-row:span 2; font-variant-numeric:tabular-nums}
 .ep span{font-size:14px; font-weight:700}

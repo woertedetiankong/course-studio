@@ -42,6 +42,8 @@ def main(argv=None):
             fill(os.path.join(a.dest, f), subs)
     print(f"created {a.dest}")
     print(f"  next: cd {a.dest} && npm install   # playwright-core for record.mjs")
+    print("  video: fact-check script.json against the source, node frames.mjs to check frames, then node record.mjs")
+    print("  lab: pick the engine first (references/lab-page.md): JS simulator in lab.html, or replay real runs via lab_data.py")
     print(f"  add to course.js EPISODES: {{id: 'ep{a.n:02d}', n: {a.n}, title: '{a.title}', ...}}")
     print(f"  and its English to course.en.js: ep{a.n:02d}: {{title: '{a.title_en or a.title}', ...}}")
 

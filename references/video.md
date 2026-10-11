@@ -83,6 +83,9 @@ Narration (script.json)
 | 16 | Recap: three things to remember | 30 |
 | 17 | Think about / what you'll do in the lab | 25 |
 
+## Fact-check the script against the source (before animating)
+Every claim in `script.json` about the codebase gets checked against the real source before any scene is drawn: function names and call order (grep each one and read the call site, not just the definition), which interrupt or thread runs it and at what priority, constants and units (read the `#define` and the setter that converts), what a return value means and whether the caller even reads it. Numbers on screen come from a real run when the course has a runnable target. Then re-check anything an earlier episode, the plan or the project map says about the same path: when they disagree, the source wins, and the other place gets fixed in the same pass. On robot-course ep36 this pass caught four wrong claims (where an edge was detected, which interrupt receives CAN frames, a PWM centre value, a current sign), two of them already published in episode 1's map.
+
 ## script.json
 Array of scenes `{id, title, zh, lines: [[english, chinese, spoken?], …]}`. `title`/`zh` show as the chapter heading in the video and become chapter names (`zh` in Chinese mode, `title` in English mode). One line = one subtitle = one **beat**. The optional third element is what the TTS says when it should differ from the subtitle ("theta star" for "θ*", "M I T", "Map Reduce") — always give one when the subtitle has symbols, code identifiers or Chinese.
 - Changing any line re-synthesizes only that line (hash cache), but shifts every later time → re-run tts, build, record, sync.
@@ -109,10 +112,10 @@ Same outputs as `tts.py` without any API: each line lasts `max(2.8 s, words/2.6,
 - tail.html draws the chrome: chapter number + title top-left (scenes 1…n-2), progress ticks top-right, subtitles bottom. Keep scene content between y≈160 and y≈840.
 - `build.py` collects every Chinese character in scenes.js into `EXTRA_ZH` so the font subset loads them — nothing to maintain by hand.
 - Add episode-specific helpers at the top of scenes.js (e.g. the episode's main formula as an `eq` parts builder); promote them to `head.html` in the skill's template only if they're generic.
-- Reference episode for this style: `~/Documents/ChatGPT/robot-course/episodes/ep01-mit-mode/` (MIT mode: spring, damper, feedforward, gearbox N², reading real firmware).
+- Reference episodes for this style: `~/Documents/ChatGPT/robot-course/episodes/ep02-sil/` (practitioner: real SIL waveforms from `data/*.csv`, code boxes) and `ep36-one-command/` (practitioner: a 22-scene end-to-end trace, timing lanes, a route progress strip, real waveforms; `scenes.js` is concatenated from `data.js`, `scenes.head.js`, `helpers.part.js` and `scenes.body.js` by `build.sh`). `ep01-big-map/` is the beginner style (analogies).
 
 ## Checking before recording
-Render a frame near the end of every beat with Playwright (`render(t)` then screenshot the canvas), tile them 2×2 with ffmpeg (`xstack`) to read many at once, and fix overlaps, off-canvas text and subtitle collisions. Recording a 10-minute episode takes ~8 minutes (≈ 40 frames/s); do it last, then pull 3–4 frames from the mp4 to confirm.
+`node frames.mjs [sceneId …]` renders a frame near the end of every beat and tiles them 2×2 into `frames/sheet-*.jpg`; read the sheets and fix overlaps, off-canvas text, subtitle collisions and titles long enough to hit the progress ticks (keep a chapter `title` under ~32 characters). Recording a 10-minute episode takes ~8 minutes (≈ 40 frames/s); do it last, then pull 3–4 frames from the mp4 to confirm.
 
 ## After recording
 `cd <root>/site && python3 dev/sync_content.py epNN`. Videos are gitignored; they ship via GitHub Releases (`content/epNN/video.mp4`).
