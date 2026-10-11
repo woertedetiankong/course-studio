@@ -7,6 +7,7 @@ script.json ──tts.py──▶ audio/*.wav (cached) + narration.wav/.mp3 + ti
             └─silent_timeline.py─▶ same outputs, silent audio, subtitle timing by reading speed (no key, no quota)
 head.html + scenes.js + tail.html + timeline.json ──build.py──▶ index.html  (open to preview, scrub, play with audio)
 index.html?record + narration.wav ──node record.mjs──▶ video.mp4 (1920×1080, 30fps, h264 + aac)
+index.html?record&nosubs + timeline.json ──node slides.mjs──▶ slides/NNN.jpg + slides.json + slides.html + slides.pdf  (课件)
 timeline.json ──site/dev/sync_content.py──▶ content/epNN/chapters.json
 ```
 
@@ -133,5 +134,13 @@ Same outputs as `tts.py` without any API: each line lasts `max(2.8 s, words/2.6,
 ## Checking before recording
 `node frames.mjs [sceneId …]` renders a frame near the end of every beat and tiles them 2×2 into `frames/sheet-*.jpg`; read the sheets and fix overlaps, off-canvas text, subtitle collisions and titles long enough to hit the progress ticks (keep a chapter `title` under ~32 characters). Recording a 10-minute episode takes ~8 minutes (≈ 40 frames/s); do it last, then pull 3–4 frames from the mp4 to confirm.
 
+## Slides (课件): every video gets one
+After recording, `node slides.mjs` (≈ 20 s) turns the video into a handout: it renders a frame near the end of every beat with `?nosubs` (no burned-in subtitles; the narration goes beside the picture as text, Chinese and English), and merges consecutive beats of one scene into one slide when the picture barely changed (`--min-diff`, default 1.2) or only gained things — the 3b1b build-up, where a term, a box or a curve appears — so each slide shows the finished picture with all the lines that built it (capped by `--max-lines`, default 6; `--keep-builds` keeps every build step). A highlight moving, a box fading out or a new layout starts a new slide. robot-course ep02: 89 beats → 40 slides.
+- `slides.html` (from `slides_page.html`, Bento, 中 / EN): chapters as a sticky chip row, each slide a tile with the screenshot (click to enlarge) and its narration, a `▶ m:ss` link that opens the course home at `#epNN@seconds` and plays the video from there (only when served by the site).
+- `slides.pdf`: A4 landscape, one slide per page, notes in both languages — for printing or reading offline. `--no-pdf` skips it.
+- Read the contact sheet before shipping: `cd slides && ffmpeg -framerate 1 -i %03d.jpg -vf "scale=480:-1,tile=5x8" -frames:v 1 ../sheet.jpg`. Too many near-repeats → raise `--min-diff`; a slide missing something that was on screen briefly → lower it.
+- Re-run it whenever the video is re-rendered (it reads `index.html` and `timeline.json`, so it always matches the current video).
+- Episodes made before this existed: copy `slides.mjs` and `slides_page.html` from `template/episode/` (fill the `__EP_…__` / `__COURSE_…__` placeholders in the page by hand), and add the `NOSUBS` guard from the template's `tail.html` to the episode's `tail.html`, then `build.py`.
+
 ## After recording
-`cd <root>/site && python3 dev/sync_content.py epNN`. Videos are gitignored; they ship via GitHub Releases (`content/epNN/video.mp4`).
+`cd <root>/site && python3 dev/sync_content.py epNN` (copies the video, chapters, and the slides when `slides.html` exists), and set `slides: true` on the episode in `course.js` so the video tile shows the 课件 button. Videos are gitignored; they ship via GitHub Releases (`content/epNN/video.mp4`).

@@ -5,6 +5,7 @@ Episode build folders live next to this repo:  ../episodes/epNN-<slug>/
   timeline.json  written by tts.py                → content/epNN/chapters.json (scene start times + zh/en titles)
   lab.html       the interactive lab page         → content/epNN/lab.html
   flow.html      the flowchart page (optional)    → content/epNN/flow.html
+  slides.html + slides/ + slides.pdf  the 课件 from slides.mjs (optional) → content/epNN/ (set slides: true in course.js)
 
 Run after re-rendering a video or editing a lab page:  python3 dev/sync_content.py [epNN ...]
 """
@@ -31,6 +32,12 @@ for name in sorted(os.listdir(EPISODES)):
         # title is shown in Chinese mode, title_en in English mode (the page falls back to title)
         chapters = [{"t": round(s["start"], 2), "title": s.get("zh") or s["title"], "title_en": s["title"]} for s in t["scenes"]]
         json.dump({"duration": t["total"], "chapters": chapters}, open(os.path.join(out, "chapters.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    if os.path.exists(os.path.join(src, "slides.html")):
+        shutil.rmtree(os.path.join(out, "slides"), ignore_errors=True)
+        shutil.copytree(os.path.join(src, "slides"), os.path.join(out, "slides"))
+        for f in ("slides.html", "slides.pdf"):
+            if os.path.exists(os.path.join(src, f)):
+                shutil.copy2(os.path.join(src, f), os.path.join(out, f))
     for page in ("lab.html", "flow.html"):
         f = os.path.join(src, page)
         if not os.path.exists(f):

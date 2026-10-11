@@ -1,6 +1,6 @@
 # Course home (dashboard)
 
-`site/web/index.html` + `js/hub.js`, driven entirely by `js/course.js`. Shows: header (course title, a 项目地图 button when `COURSE_META.atlas`, runner status), the current episode (eyebrow, title, description, n/5 progress bar), its steps as Bento tiles (video tile spans two columns with a chapter list beside the player), then the course map (every episode; planned ones dashed and not clickable). `#epNN` in the URL selects an episode.
+`site/web/index.html` + `js/hub.js`, driven entirely by `js/course.js`. Shows: header (course title, a 项目地图 button when `COURSE_META.atlas`, runner status), the current episode (eyebrow, title, description, n/5 progress bar), its steps as Bento tiles (video tile spans two columns with a chapter list beside the player), then the course map (every episode; planned ones dashed and not clickable). `#epNN` in the URL selects an episode; `#epNN@123` also starts its video at 123 s (the 课件's ▶ links).
 
 ## course.js
 ```js
@@ -10,6 +10,7 @@ window.EPISODES = [{
   id: 'ep01', n: 1, title, group /* map grouping, e.g. 基础 / Raft */, status: 'ready'|'partial'|'planned',
   desc, steps: ['video','reading','lab','flow','map','dojo','assignment'],   // any subset, in order
   videoTime: '约 6 分钟',
+  slides?: true,                                              // 课件 exists: content/<id>/slides.html (+ slides.pdf), a button on the video tile
   reading: {title, url?, urlLabel?, urlNote?, notes?, notesLabel?, links?: [{label, url, note?}], time?, read: [...], ask: [...]},
   lab: {questions: 6, time?, desc},
   flow: {questions: 3, time?, desc},                          // the flowchart page, content/<id>/flow.html
@@ -30,4 +31,4 @@ Add every planned episode early (just id/n/title/group/status:'planned'), with i
 - `dojo.<dojoId>.passed` — written by the dojo; done when count ≥ levels reported by the runner.
 
 ## Content
-`content/<epId>/video.mp4`, `chapters.json` (`{duration, chapters: [{t, title, title_en}]}`), `lab.html`, `flow.html` — produced by `dev/sync_content.py`. Missing video shows a friendly "download from Releases" message.
+`content/<epId>/video.mp4`, `chapters.json` (`{duration, chapters: [{t, title, title_en}]}`), `lab.html`, `flow.html`, `slides.html` + `slides/` + `slides.pdf` — produced by `dev/sync_content.py`. Missing video shows a friendly "download from Releases" message.

@@ -37,7 +37,9 @@ const stepDone = (ep, k, auto) => done(ep.id, k) || !!(auto[k] && auto[k].done);
 /* ---------------- render ---------------- */
 const open = e => e.status !== 'planned';
 // default: the episode in the URL, else the first fully ready one, else the first with any material
-const pick = () => EPISODES.find(e => e.id === location.hash.slice(1) && open(e)) || EPISODES.find(e => e.status === 'ready') || EPISODES.find(open) || EPISODES[0];
+// #epNN selects an episode; #epNN@123 also starts its video at 123 s (the slides page links here)
+const hashEp = () => location.hash.slice(1).split('@')[0], hashT = () => +(location.hash.split('@')[1] || NaN);
+const pick = () => EPISODES.find(e => e.id === hashEp() && open(e)) || EPISODES.find(e => e.status === 'ready') || EPISODES.find(open) || EPISODES[0];
 let current = pick(), probed = false;
 let chapters = null, videoEl = null;
 
@@ -74,7 +76,7 @@ function stepCard(ep, k, no, auto){
     return `<article class="step wide ${isDone ? 'done' : ''}">
       ${head(L('看视频', 'Watch the video'), ep.videoTime)}
       <div class="player" id="player"><div><video id="video" controls preload="metadata" src="content/${ep.id}/video.mp4"></video></div><ol class="chapters" id="chapters"></ol></div>
-      <div class="acts"><span class="status ${isDone ? 'ok' : ''}">${isDone ? L('已看完', 'Watched') : L('看到 90% 会自动记为完成，也可以按章节跳着看', 'Marked done automatically at 90%; jump around by chapter if you like')}</span>${check(ep, 'video', L('标记为看完', 'Mark as watched'))}</div>
+      <div class="acts"><span class="status ${isDone ? 'ok' : ''}">${isDone ? L('已看完', 'Watched') : L('看到 90% 会自动记为完成，也可以按章节跳着看', 'Marked done automatically at 90%; jump around by chapter if you like')}</span>${ep.slides ? `<a class="go" href="content/${ep.id}/slides.html">${L('课件', 'Slides')}</a>` : ''}${check(ep, 'video', L('标记为看完', 'Mark as watched'))}</div>
     </article>`;
   }
   if (k === 'reading'){
@@ -144,6 +146,11 @@ function bindSteps(ep, kept){
   v.addEventListener('timeupdate', () => { markWatched(); highlightChapter(v.currentTime); });
   v.addEventListener('error', () => { $('#player').innerHTML = `<div class="missing">${L(`没有找到这一集的视频。视频文件比较大，没有放进 git 仓库：请从项目的 Releases 页面下载，保存为 <code>content/${ep.id}/video.mp4</code>，然后刷新页面。`, `This episode's video is missing. Videos are large and not kept in git: download it from the project's Releases page, save it as <code>content/${ep.id}/video.mp4</code>, and reload.`)}</div>`; });
   loadChapters(ep).then(() => renderChapters(v));
+  if (hashT() >= 0) seekHash(v);
+}
+function seekHash(v){
+  const go = () => { v.currentTime = hashT(); v.play().catch(() => {}); v.scrollIntoView({block: 'center'}); history.replaceState(null, '', '#' + hashEp()); };
+  v.readyState >= 1 ? go() : v.addEventListener('loadedmetadata', go, {once: true});
 }
 function renderHeadOnly(){ const y = scrollY; render(); scrollTo(0, y); }
 
@@ -174,8 +181,9 @@ function renderMap(){
 }
 
 addEventListener('hashchange', () => {
-  const e = EPISODES.find(x => x.id === location.hash.slice(1) && open(x));
+  const e = EPISODES.find(x => x.id === hashEp() && open(x));
   if (e && e !== current){ current = e; videoEl = null; render(); scrollTo({top: 0, behavior: 'smooth'}); }
+  else if (e && videoEl && hashT() >= 0) seekHash(videoEl);
 });
 addEventListener('focus', () => { if (probed) render(); });
 

@@ -49,7 +49,7 @@ const meta = Object.fromEntries(Object.values(dojos).map((d) => [d.id, { lang: d
 const TYPES: Record<string, string> = {
 	".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
 	".json": "application/json; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg",
-	".mp4": "video/mp4", ".vtt": "text/vtt; charset=utf-8", ".ico": "image/x-icon",
+	".mp4": "video/mp4", ".pdf": "application/pdf", ".vtt": "text/vtt; charset=utf-8", ".ico": "image/x-icon",
 };
 
 function send(res: ServerResponse, status: number, body: string, type = "text/plain; charset=utf-8"): void {

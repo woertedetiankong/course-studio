@@ -5,7 +5,8 @@
         --course-title "分布式系统练功房" [--title-en "RPC and threads" --course-title-en "Distributed Systems Dojo"] [--timeout 10]
 
 The folder holds: script.json + scenes.js (write these), head.html/tail.html (engine, rarely touched),
-tts.py (Gemini TTS; or silent_timeline.py for a no-voice preview) → build.py → record.mjs (narrate, stitch, render video.mp4), lab.html (interactive lab page).
+tts.py (Gemini TTS; or silent_timeline.py for a no-voice preview) → build.py → record.mjs (narrate, stitch, render video.mp4)
+→ slides.mjs (课件: screenshots + narration → slides.html/.pdf), lab.html (interactive lab page).
 Refuses to overwrite an existing folder.
 """
 import argparse, os, shutil, sys
@@ -43,6 +44,7 @@ def main(argv=None):
     print(f"created {a.dest}")
     print(f"  next: cd {a.dest} && npm install   # playwright-core for record.mjs")
     print("  video: fact-check script.json against the source, node frames.mjs to check frames, then node record.mjs")
+    print("  slides (课件): after record.mjs, node slides.mjs → slides.html + slides.pdf; set slides: true in course.js")
     print("  lab: pick the engine first (references/lab-page.md): JS simulator in lab.html, or replay real runs via lab_data.py")
     print(f"  add to course.js EPISODES: {{id: 'ep{a.n:02d}', n: {a.n}, title: '{a.title}', ...}}")
     print(f"  and its English to course.en.js: ep{a.n:02d}: {{title: '{a.title_en or a.title}', ...}}")
