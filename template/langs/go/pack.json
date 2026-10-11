@@ -1,0 +1,9 @@
+{
+	"name": "Go",
+	"install_zh": "安装 Go 1.22 或更新的版本：<https://go.dev/dl/>（macOS 也可以 `brew install go`）",
+	"install_en": "Install Go 1.22 or newer: <https://go.dev/dl/> (on macOS, `brew install go` works too)",
+	"dojoDesc_zh": "用 Go 一关一关写出来，测试用真正的 go test -race 运行。",
+	"dojoDesc_en": "Build it in Go one level at a time; the tests run with the real go test -race.",
+	"workspace_zh": "练功房里你的代码在 `workspace/<练功房>/` 里，是一个 Go 包，可以用 VS Code 打开 `workspace/` 编辑。",
+	"workspace_en": "Your dojo code is a Go package in `workspace/<dojo>/`; open `workspace/` in VS Code if you like."
+}

@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+/* 中文 / English. The choice is shared with the course site (localStorage 'course.lang'); the default follows the browser.
+   Static text: the Chinese is in the markup and the English in data-en (HTML allowed; avoid double quotes inside, use “ ”).
+   Script text: L(中文, English). Questions: QS_EN overlays QS by index. */
+const EN = (() => { let l = null; try { l = localStorage.getItem('course.lang'); } catch {} if (l !== 'zh' && l !== 'en') l = /^zh\b/i.test(navigator.language || '') ? 'zh' : 'en'; return l === 'en'; })();
+const L = (zh, en) => EN ? en : zh;
+document.documentElement.lang = EN ? 'en' : 'zh-CN';
+</script>
+<title>__EP_TITLE__ 实验台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+/* Layout: a bento box. Every block is a white tile on a quiet grey ground; color is reserved for state. */
+:root{
+  --bg:#F2F2F0; --tile:#FFFFFF; --soft:#F5F5F3; --soft-2:#FAFAF9; --edge:#E4E4E1; --edge-2:#D6D6D2;
+  --ink:#141414; --ink-2:#3F3F46; --mute:#6E6E73; --faint:#A1A1A6;
+  --acc:#4F46E5; --acc-soft:#EEF0FF; --on-acc:#FFFFFF;
+  --ok:#16A34A; --ok-soft:#ECFDF3; --bad:#DC2626; --bad-soft:#FEF2F2; --warn:#B45309; --warn-soft:#FEF3C7;
+  --l0:#4F46E5; --l1:#D97706; --l2:#059669; --l3:#DB2777;
+  --shadow:0 1px 2px rgba(20,20,20,.04);
+  --f-sans:"Geist","Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"Geist Mono","SFMono-Regular",Menlo,Consolas,"Noto Sans SC",monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0B0B0C; --tile:#161618; --soft:#1D1D20; --soft-2:#1A1A1D; --edge:#26262A; --edge-2:#34343A;
+  --ink:#EDEDEF; --ink-2:#C9C9CF; --mute:#9A9AA2; --faint:#6B6B73;
+  --acc:#8B85FF; --acc-soft:#22213A; --on-acc:#0B0B0C;
+  --ok:#4ADE80; --ok-soft:#13261A; --bad:#F87171; --bad-soft:#2A1414; --warn:#FBBF24; --warn-soft:#2A2110;
+  --l0:#8B85FF; --l1:#FBBF24; --l2:#34D399; --l3:#F472B6;
+  --shadow:none; color-scheme:dark; } }
+:root[data-theme="dark"]{
+  --bg:#0B0B0C; --tile:#161618; --soft:#1D1D20; --soft-2:#1A1A1D; --edge:#26262A; --edge-2:#34343A;
+  --ink:#EDEDEF; --ink-2:#C9C9CF; --mute:#9A9AA2; --faint:#6B6B73;
+  --acc:#8B85FF; --acc-soft:#22213A; --on-acc:#0B0B0C;
+  --ok:#4ADE80; --ok-soft:#13261A; --bad:#F87171; --bad-soft:#2A1414; --warn:#FBBF24; --warn-soft:#2A2110;
+  --l0:#8B85FF; --l1:#FBBF24; --l2:#34D399; --l3:#F472B6;
+  --shadow:none; color-scheme:dark; }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0; background:var(--bg); color:var(--ink); font:15px/1.6 var(--f-sans); -webkit-font-smoothing:antialiased}
+.wrap{max-width:1320px; margin:0 auto; padding-inline:20px; padding-block:36px 72px; display:flex; flex-direction:column; gap:44px}
+h1,h2,h3{margin:0; text-wrap:balance}
+p{margin:0}
+button,select,input,textarea{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--acc); outline-offset:2px}
+code{font:12.5px var(--f-mono); background:var(--soft); border-radius:6px; padding:1px 6px}
+
+/* ---------- header ---------- */
+.hero{display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:16px; align-items:stretch}
+.hero > div:first-child{background:var(--tile); border:1px solid var(--edge); border-radius:22px; padding:28px 30px; display:flex; flex-direction:column; justify-content:flex-end}
+.eyebrow{font:500 13px var(--f-mono); color:var(--acc)}
+.home{ font:500 13px var(--f-sans); color:var(--mute); text-decoration:none; padding:6px 12px; border-radius:10px; background:var(--soft)}
+.home:hover{color:var(--ink)}
+.hero-top{display:flex; align-items:center; gap:10px; margin-bottom:14px}
+.lang{margin-left:auto; display:inline-flex; padding:3px; gap:2px; border-radius:999px; background:var(--soft); border:0; cursor:pointer; font:600 12px/1 var(--f-mono); color:var(--mute)}
+.lang span{padding:5px 9px; border-radius:999px}
+.lang span.on{background:var(--ink); color:var(--bg)}
+.lang:hover span:not(.on){color:var(--ink)}
+.hero h1{font:600 clamp(36px,5vw,56px)/1.05 var(--f-sans); letter-spacing:-.03em; margin-top:10px}
+.lead{margin-top:14px; max-width:36em; color:var(--mute); font-size:15.5px; text-wrap:pretty}
+.path{list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px}
+.path li{background:var(--tile); border:1px solid var(--edge); border-radius:18px; padding:16px 18px; font-size:13px; color:var(--mute); line-height:1.45; display:flex; flex-direction:column; gap:4px; min-width:0}
+.path li::before{content:attr(data-n); font:500 12px var(--f-mono); color:var(--faint)}
+.path li b{font-size:16px; font-weight:600; color:var(--ink)}
+.path li.here{background:var(--acc-soft); border-color:transparent}
+.path li.here b,.path li.here::before{color:var(--acc)}
+
+/* ---------- section heads + analogy ---------- */
+.sec-head{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:16px}
+.sec-head h2{font:600 26px/1.2 var(--f-sans); letter-spacing:-.02em}
+.sec-head p{color:var(--mute); max-width:46em}
+.ana-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px}
+.ana{background:var(--tile); border:1px solid var(--edge); border-radius:18px; padding:14px 16px; display:flex; flex-direction:column; gap:4px; min-width:0}
+.ana b{font:600 16px var(--f-sans)}
+.ana span{font:500 12px var(--f-mono); color:var(--acc); overflow-wrap:anywhere}
+.ana p{font-size:13.5px; color:var(--mute); line-height:1.55; margin-top:2px}
+
+/* ---------- control bar ---------- */
+.lab{display:flex; flex-direction:column; gap:14px}
+.bar{display:flex; flex-wrap:wrap; align-items:center; gap:10px 12px; padding:10px 12px; background:var(--tile); border:1px solid var(--edge); border-radius:20px; position:sticky; top:env(safe-area-inset-top,0px); z-index:5; box-shadow:0 6px 20px -14px rgba(20,20,20,.25)}
+.btn{border:0; background:var(--soft); border-radius:12px; padding:9px 15px; cursor:pointer; font-weight:500; font-size:14px; white-space:nowrap; transition:background .15s}
+.btn:hover{background:var(--edge)}
+.btn.primary{background:var(--ink); color:var(--bg); min-width:92px}
+.btn.primary:hover{opacity:.88; background:var(--ink)}
+.seg{display:inline-flex; background:var(--soft); border-radius:12px; padding:3px; gap:2px}
+.seg button{border:0; background:none; border-radius:9px; padding:6px 10px; cursor:pointer; font:500 12.5px var(--f-mono); color:var(--mute)}
+.seg button.on{background:var(--tile); color:var(--ink); box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.clock{margin-left:auto; display:flex; align-items:center; gap:12px; font-variant-numeric:tabular-nums}
+.clock .t{font:600 26px/1 var(--f-mono); letter-spacing:-.02em}
+.clock .t small{font-size:13px; color:var(--mute); font-weight:400}
+.phase{font:500 12.5px/1 var(--f-sans); padding:7px 11px; border-radius:999px; background:var(--soft); color:var(--mute)}
+.phase.run{background:var(--acc-soft); color:var(--acc)}
+.phase.done{background:var(--ok-soft); color:var(--ok)}
+
+/* ---------- settings ---------- */
+.settings{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px}
+.settings > div{background:var(--tile); border:1px solid var(--edge); border-radius:22px; padding:18px; display:flex; flex-direction:column; gap:6px; min-width:0}
+.lbl{font:500 12.5px/1.3 var(--f-sans); color:var(--mute)}
+select{border:1px solid var(--edge); background:var(--soft-2); border-radius:10px; padding:8px 10px; width:100%}
+.switch{display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer}
+.switch span{display:flex; flex-direction:column; line-height:1.35; font-weight:500; font-size:14px}
+.switch small{color:var(--mute); font-size:12.5px; font-weight:400}
+.switch input{appearance:none; width:40px; height:24px; border-radius:12px; background:var(--edge-2); position:relative; cursor:pointer; flex:none; transition:background .15s; margin:0}
+.switch input::after{content:""; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.2); transition:transform .15s}
+.switch input:checked{background:var(--acc)}
+.switch input:checked::after{transform:translateX(16px)}
+.script{font-size:13px; padding:8px 12px; border-radius:10px; background:var(--warn-soft); color:var(--warn)}
+
+/* ---------- stage: the system being simulated ---------- */
+.stage{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,2fr); gap:14px}
+.stage > .col{background:var(--tile); border:1px solid var(--edge); border-radius:22px; padding:16px; display:flex; flex-direction:column; gap:10px; min-width:0}
+.col > h3{font:600 14px/1.3 var(--f-sans); display:flex; justify-content:space-between; gap:8px}
+.col > h3 em{font:400 12px var(--f-mono); color:var(--mute); font-style:normal}
+.tasks{display:flex; flex-wrap:wrap; gap:8px}
+.chip{min-width:62px; padding:7px 10px 6px; border-radius:12px; background:var(--soft); text-align:center; line-height:1.25; transition:background .2s, box-shadow .2s}
+.chip b{display:block; font:600 14px var(--f-mono)}
+.chip i{font:normal 400 11px var(--f-mono); color:var(--mute)}
+.chip.st-prog{background:var(--acc-soft); box-shadow:inset 0 0 0 1.5px var(--acc)} .chip.st-prog b{color:var(--acc)}
+.chip.st-done{background:var(--ok-soft)} .chip.st-done b{color:var(--ok)}
+.nodes{display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px}
+.node{padding:12px 14px; border-radius:16px; background:var(--soft-2); display:flex; flex-direction:column; gap:8px; transition:background .2s, box-shadow .2s}
+.node .top{display:flex; align-items:center; gap:8px}
+.node .name{font:600 17px/1 var(--f-mono)}
+.node .kill{margin-left:auto; font-size:12.5px; padding:4px 11px; border-radius:9px; border:1px solid var(--edge); background:var(--tile); cursor:pointer; color:var(--ink-2)}
+.node .kill:hover{border-color:var(--bad); color:var(--bad)}
+.node .status{font-size:13.5px; color:var(--ink-2); min-height:1.4em}
+.node .bar2{height:6px; border-radius:3px; background:var(--edge); overflow:hidden}
+.node .bar2 i{display:block; height:100%; width:0; background:var(--acc); border-radius:3px}
+.node.busy{box-shadow:inset 0 0 0 1.5px var(--acc); background:var(--tile)}
+.node.dead{background:var(--bad-soft)} .node.dead .name,.node.dead .status{color:var(--bad)}
+.node.dead .kill{border-color:var(--ok); color:var(--ok)}
+
+/* ---------- log + verdict ---------- */
+.below{display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:14px}
+.panel{background:var(--tile); border:1px solid var(--edge); border-radius:22px; padding:18px 20px; min-width:0}
+.panel-h{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px}
+.panel-h h3,.panel > h3{font:600 14px/1.3 var(--f-sans); margin:0}
+.log{list-style:none; margin:0; padding:0; max-height:300px; overflow:auto; display:flex; flex-direction:column}
+.log li{display:grid; grid-template-columns:58px 56px minmax(0,1fr); gap:10px; padding:7px 0; border-top:1px solid var(--edge); font-size:13.5px; line-height:1.5}
+.log li:first-child{border-top:0}
+.log .lt{font:400 12px/1.9 var(--f-mono); color:var(--faint); font-variant-numeric:tabular-nums}
+.log .lw{font:400 12px/1.9 var(--f-sans); color:var(--mute)}
+.log li.k-ok .lx{color:var(--ok)} .log li.k-bad .lx{color:var(--bad)} .log li.k-warn .lx{color:var(--warn)}
+.verdict{display:flex; flex-direction:column; gap:10px}
+.verdict .big{font:600 24px/1.2 var(--f-sans); letter-spacing:-.02em}
+.verdict .big.ok{color:var(--ok)} .verdict .big.bad{color:var(--bad)}
+.verdict p{color:var(--ink-2); font-size:14px}
+
+/* ---------- predict, then verify ---------- */
+.qs{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px}
+.q{background:var(--tile); border:1px solid var(--edge); border-radius:22px; padding:22px; display:flex; flex-direction:column; gap:12px; min-width:0}
+.q .qn{font:500 12.5px var(--f-mono); color:var(--acc)}
+.q h3{font:600 19px/1.3 var(--f-sans); letter-spacing:-.01em}
+.q .setup{color:var(--mute); font-size:14px}
+.q .ask{font-weight:600}
+.opts{display:flex; flex-direction:column; gap:8px}
+.opt{text-align:left; border:1px solid transparent; background:var(--soft); border-radius:12px; padding:10px 13px; cursor:pointer; font-size:14px; line-height:1.45; transition:background .15s, border-color .15s}
+.opt:hover:not(:disabled){background:var(--edge)}
+.opt:disabled{cursor:default}
+.opt.right{background:var(--ok-soft); border-color:var(--ok)}
+.opt.wrong{background:var(--bad-soft); border-color:var(--bad)}
+.ans{display:flex; flex-direction:column; gap:12px; padding-top:12px; border-top:1px solid var(--edge); font-size:14px; color:var(--ink-2)}
+.ans .res{font-weight:600} .ans .res.ok{color:var(--ok)} .ans .res.bad{color:var(--bad)}
+.ans .btn{align-self:flex-start}
+
+/* ---------- mapping table ---------- */
+.tbl-wrap{overflow-x:auto; background:var(--tile); border:1px solid var(--edge); border-radius:22px}
+table.map{width:100%; border-collapse:collapse; min-width:760px; font-size:14px}
+table.map th{text-align:left; font:500 12.5px var(--f-sans); color:var(--mute); padding:14px 18px; border-bottom:1px solid var(--edge)}
+table.map td{padding:13px 18px; border-bottom:1px solid var(--edge); vertical-align:top; line-height:1.55}
+table.map tr:last-child td{border-bottom:0}
+table.map td:first-child{font-weight:600; white-space:nowrap}
+table.map td.trap{color:var(--bad)}
+footer{font-size:13px; color:var(--faint); border-top:1px solid var(--edge); padding-top:18px}
+
+@media (max-width:1100px){ .settings{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .stage{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:760px){
+  .hero,.below,.qs,.settings{grid-template-columns:minmax(0,1fr)}
+  .clock{margin-left:0; width:100%; justify-content:space-between}
+  .bar{position:static}
+  .log li{grid-template-columns:52px minmax(0,1fr)} .log .lw{display:none}
+}
+@media (prefers-reduced-motion:reduce){ *{animation:none!important; transition:none!important} }
+</style>
+</head>
+<body>
+<!--
+  Lab page skeleton. Replace the toy system (a coordinator handing tasks to nodes, reassigning after a timeout)
+  with this episode's mechanism, but keep the structure:
+    hero + learning path → analogy → simulator (controls, settings, stage, log, verdict)
+    → predict-then-verify questions (each runs the same scenario headlessly for its explanation, and can replay it live)
+    → mapping table to the real assignment.
+  The simulator is a pure, deterministic step function: sim = init(cfg); tick(sim, dt) … ; draw(sim).
+  The same engine powers live playback and runHeadless(cfg) for the questions, so explanations quote real numbers.
+-->
+<div class="wrap">
+  <header class="hero">
+    <div>
+      <div class="hero-top"><a class="home" id="homeLink" href="/" hidden data-en="← Course home">← 课程首页</a><button class="lang" id="langBtn" type="button"></button></div>
+      <p class="eyebrow" data-en="__COURSE_TITLE_EN__ · Episode __EP_N__ · Interactive lab">__COURSE_TITLE__ · 第 __EP_N__ 集 · 交互实验</p>
+      <h1 data-en="__EP_TITLE_EN__ lab">__EP_TITLE__ 实验台</h1>
+      <p class="lead" data-en="The video showed how it works; this page lets you try it: cause failures, watch how the system copes, and check whether the result is still right.">视频讲了它怎么工作，这一页让你亲手试一试：制造故障，看系统怎么应对，最后的结果还对不对。</p>
+    </div>
+    <ol class="path" aria-label="学习顺序" data-en-label="Learning path">
+      <li data-n="01" data-en="<b>Watch</b>build intuition"><b>看视频</b>建立直觉</li>
+      <li data-n="02" data-en="<b>Read</b>the source"><b>读材料</b>原文</li>
+      <li data-n="03" class="here" data-en="<b>Experiment</b>this page"><b>做实验</b>就是这一页</li>
+      <li data-n="04" data-en="<b>Write code</b>the dojo, then the real assignment"><b>写代码</b>练功房，然后真正的作业</li>
+    </ol>
+  </header>
+
+  <section aria-labelledby="ana-h">
+    <div class="sec-head"><h2 id="ana-h" data-en="First, the analogy">先看懂这个比喻</h2><p data-en="An everyday scene with one thing for every term. The wording on the page switches between “Plain words” and “Terms”.">用一个生活场景对应每个术语。页面上的说法可以在「大白话」和「术语」之间切换。</p></div>
+    <div class="ana-grid">
+      <div class="ana" data-en="<b>Team lead</b><span>Coordinator</span><p>Hands out work and keeps the books: who took what, who finished, who went missing.</p>"><b>组长</b><span>Coordinator · 协调者</span><p>派活、记账。谁领了什么、谁做完了、谁失联了，都记在本子上。</p></div>
+      <div class="ana" data-en="<b>Team member</b><span>Worker · node</span><p>Does the actual work, and can suddenly become unreachable (a crash).</p>"><b>组员</b><span>Worker · 节点</span><p>真正干活的人，会突然联系不上（宕机）。</p></div>
+      <div class="ana" data-en="<b>Waited too long</b><span>Timeout</span><p>Work not handed back for too long is given to someone else.</p>"><b>等太久</b><span>Timeout · 超时</span><p>活交出去太久没交回，组长就把它重新派给别人。</p></div>
+    </div>
+  </section>
+
+  <section class="lab" id="lab" aria-labelledby="lab-h">
+    <div class="sec-head"><h2 id="lab-h" data-en="Simulator">模拟器</h2><p data-en="Press “Crash it” on a node card, and press it again to restart. Changing a setting restarts the run.">点节点卡片上的「让它宕机」，再点一次「重启」。改动参数后会自动重新开始。</p></div>
+
+    <div class="bar" role="toolbar" aria-label="播放控制" data-en-label="Playback">
+      <button class="btn primary" id="play" type="button">播放</button>
+      <button class="btn" id="step" type="button" data-en="Step +0.5 s">单步 +0.5 秒</button>
+      <button class="btn" id="reset" type="button" data-en="Reset">重置</button>
+      <div class="seg" id="speed" role="group" aria-label="速度" data-en-label="Speed"><button type="button" data-s="0.5">0.5×</button><button type="button" data-s="1" class="on">1×</button><button type="button" data-s="2">2×</button><button type="button" data-s="4">4×</button></div>
+      <div class="clock"><span class="phase" id="phase">准备</span><span class="t" id="clock">0.0 <small>秒</small></span></div>
+    </div>
+
+    <div class="settings">
+      <div><label class="lbl" for="optN" data-en="Nodes">节点数</label><select id="optN"><option>2</option><option selected>3</option><option>4</option></select></div>
+      <div><label class="lbl" for="optT" data-en="Tasks">任务数</label><select id="optT"><option>4</option><option selected>6</option><option>8</option></select></div>
+      <div><label class="switch" for="optRetry"><span data-en="Reassign on timeout<small>a task not handed back within __TIMEOUT__ s goes to someone else</small>">超时重新分配<small>任务交出去超过 __TIMEOUT__ 秒没交回，就派给别人</small></span><input type="checkbox" id="optRetry" checked></label><p class="script" id="script" hidden></p></div>
+    </div>
+
+    <div class="stage">
+      <div class="col"><h3 data-en="Tasks <em>the lead’s ledger</em>">任务 <em>组长的账本</em></h3><div class="tasks" id="tasks"></div></div>
+      <div class="col"><h3 data-en="Nodes <em>press a button to cause a failure</em>">节点 <em>点按钮制造故障</em></h3><div class="nodes" id="nodes"></div></div>
+    </div>
+
+    <div class="below">
+      <div class="panel"><div class="panel-h"><h3 data-en="Event log">事件日志</h3><div class="seg" id="talk" role="group" aria-label="说法" data-en-label="Wording"><button type="button" data-m="plain" data-en="Plain words">大白话</button><button type="button" data-m="term" data-en="Terms">术语</button></div></div><ol class="log" id="log"></ol></div>
+      <div class="panel verdict" id="verdict" data-en="<h3>Checking the result</h3><p>When every task is done, this checks whether the result is right.</p>"><h3>结果校验</h3><p>全部任务完成后，这里会检查结果对不对。</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="qs-h">
+    <div class="sec-head"><h2 id="qs-h" data-en="Predict, then check">先预测，再验证</h2><p data-en="For each question, pick an answer on instinct first, then run the same scenario in the simulator. The ones you get wrong teach the most.">每道题先凭直觉选一个答案，再在模拟器里运行同样的场景。猜错的题最有收获。</p></div>
+    <div class="qs" id="qs"></div>
+  </section>
+
+  <section aria-labelledby="map-h">
+    <div class="sec-head"><h2 id="map-h" data-en="Mapping to the real assignment">对照真正的作业</h2><p data-en="Every mechanism you see in the simulator is something you write yourself in the assignment.">模拟器里看到的每个机制，在作业里都要你自己写出来。</p></div>
+    <div class="tbl-wrap"><table class="map">
+      <thead><tr><th data-en="In the simulator">模拟器里的现象</th><th data-en="What you write in the assignment">作业里你要写的</th><th data-en="Common traps">常见的坑</th></tr></thead>
+      <tbody>
+        <tr><td data-en="A node asks for work">节点要任务</td><td data-en="The node asks the coordinator for tasks in a loop.">节点循环向协调者请求任务。</td><td class="trap" data-en="Not waiting when there is no task, and polling like mad">拿不到任务时不等待，疯狂轮询</td></tr>
+        <tr><td data-en="Reassign on timeout">超时重新分配</td><td data-en="Record each task’s start time and put it back to idle when it times out.">记录每个任务的开始时间，超时就重新设为待分配。</td><td class="trap" data-en="Resending only when a node reports failure, but a crashed node reports nothing">只在节点报告失败时重发，可宕机的节点不会报告</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <footer data-en="References: the original paper / textbook · the original assignment number.">参考：原论文 / 教材出处 · 原课程作业编号。</footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+/* ---------------- language ---------------- */
+document.title = L(`__EP_TITLE__ 实验台`, `__EP_TITLE_EN__ Lab`);  // backticks: titles may contain apostrophes
+if (EN){
+  document.querySelectorAll('[data-en]').forEach(e => { e.innerHTML = e.dataset.en; });
+  document.querySelectorAll('[data-en-label]').forEach(e => e.setAttribute('aria-label', e.dataset.enLabel));
+  document.querySelectorAll('[data-en-title]').forEach(e => e.setAttribute('title', e.dataset.enTitle));
+}
+$('#langBtn').innerHTML = `<span class="${EN ? '' : 'on'}">中</span><span class="${EN ? 'on' : ''}">EN</span>`;
+$('#langBtn').title = EN ? '切换到中文' : 'Switch to English';
+$('#langBtn').addEventListener('click', () => { try { localStorage.setItem('course.lang', EN ? 'zh' : 'en'); } catch {} location.reload(); });
+
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const EP = 'ep__EP_NN__';                       // must match the episode id in the course's course.js
+const K = {WORK: 3, TIMEOUT: __TIMEOUT__};       // seconds per task, seconds before reassigning
+
+/* ---------------- engine: pure and deterministic ---------------- */
+// cfg: {n, tasks, retry, events: [{at, kill|revive: nodeIndex}], note}
+function init(cfg){
+  return {cfg, t: 0, log: [], doneAt: null, tries: 0,
+    tasks: Array.from({length: cfg.tasks}, (_, i) => ({id: i, st: 'idle', node: null, since: 0, runs: 0})),
+    nodes: Array.from({length: cfg.n}, (_, i) => ({id: i, dead: false, task: null, left: 0})),
+    pending: [...(cfg.events || [])].sort((a, b) => a.at - b.at)};
+}
+function say(sim, who, plain, term, kind = ''){ sim.log.push({t: sim.t, who, plain, term, kind}); }
+function tick(sim, dt){
+  const c = sim.cfg; sim.t += dt;
+  while (sim.pending.length && sim.pending[0].at <= sim.t){ const e = sim.pending.shift(); 'kill' in e ? kill(sim, e.kill) : revive(sim, e.revive); }
+  for (const n of sim.nodes){
+    if (n.dead) continue;
+    if (n.task != null){
+      n.left -= dt;
+      if (n.left <= 0){ const tk = sim.tasks[n.task]; if (tk.st !== 'done'){ tk.st = 'done'; say(sim, 'N' + n.id, L(`N${n.id} 交回了任务 ${tk.id}`, `N${n.id} hands back task ${tk.id}`), `N${n.id} reports task ${tk.id} done`, 'ok'); } n.task = null; }
+    } else {
+      const tk = sim.tasks.find(x => x.st === 'idle');
+      if (tk){ tk.st = 'prog'; tk.node = n.id; tk.since = sim.t; tk.runs++; sim.tries++; n.task = tk.id; n.left = K.WORK; say(sim, 'N' + n.id, L(`N${n.id} 领了任务 ${tk.id}`, `N${n.id} takes task ${tk.id}`), `assign task ${tk.id} → N${n.id}`); }
+    }
+  }
+  if (c.retry) for (const tk of sim.tasks) if (tk.st === 'prog' && sim.t - tk.since > K.TIMEOUT){ tk.st = 'idle'; say(sim, L('组长', 'lead'), L(`任务 ${tk.id} 等太久了，重新派出去`, `Task ${tk.id} took too long; it goes out again`), `task ${tk.id} timed out, back to idle`, 'warn'); }
+  if (sim.doneAt == null && sim.tasks.every(x => x.st === 'done')){ sim.doneAt = sim.t; say(sim, L('组长', 'lead'), L('全部完成', 'All done'), 'all tasks done', 'ok'); }
+}
+function kill(sim, i){ const n = sim.nodes[i]; if (!n || n.dead) return; n.dead = true; n.task = null; say(sim, 'N' + i, L(`N${i} 联系不上了`, `N${i} can't be reached`), `N${i} crashed`, 'bad'); }
+function revive(sim, i){ const n = sim.nodes[i]; if (!n || !n.dead) return; n.dead = false; say(sim, 'N' + i, L(`N${i} 回来了`, `N${i} is back`), `N${i} restarted`, 'ok'); }
+function runHeadless(cfg, limit = 120){ const s = init(cfg); while (s.doneAt == null && s.t < limit) tick(s, 0.05); return s; }
+
+/* ---------------- live playback ---------------- */
+const BASE = {n: 3, tasks: 6, retry: true};
+let cfg = {...BASE}, sim, playing = false, speed = 1, last = 0, shown = 0;
+let talk = (() => { try { return localStorage.getItem('lab.talk') || 'plain'; } catch { return 'plain'; } })();
+function readSettings(){ cfg = {...cfg, n: +$('#optN').value, tasks: +$('#optT').value, retry: $('#optRetry').checked}; }
+function writeSettings(){ $('#optN').value = cfg.n; $('#optT').value = cfg.tasks; $('#optRetry').checked = cfg.retry; $('#script').hidden = !cfg.note; $('#script').textContent = cfg.note ? L('场景：', 'Scenario: ') + cfg.note : ''; }
+function reset(){ sim = init(cfg); shown = 0; $('#log').innerHTML = ''; setPlaying(false); draw(); }
+function setPlaying(v){ playing = v; $('#play').textContent = v ? L('暂停', 'Pause') : sim && sim.doneAt != null ? L('重放', 'Replay') : L('播放', 'Play'); }
+function draw(){
+  $('#clock').innerHTML = `${sim.t.toFixed(1)} <small>${L('秒', 's')}</small>`;
+  const ph = $('#phase'); ph.className = 'phase ' + (sim.doneAt != null ? 'done' : sim.t > 0 ? 'run' : ''); ph.textContent = sim.doneAt != null ? L('完成', 'Done') : sim.t > 0 ? L('运行中', 'Running') : L('准备', 'Ready');
+  $('#tasks').innerHTML = sim.tasks.map(x => `<div class="chip st-${x.st}"><b>T${x.id}</b><i>${x.st === 'prog' ? 'N' + x.node : x.st === 'done' ? L('完成', 'done') : L('待分配', 'idle')}${x.runs > 1 ? ' ×' + x.runs : ''}</i></div>`).join('');
+  const box = $('#nodes');
+  if (box.children.length !== sim.nodes.length){
+    box.innerHTML = '';
+    sim.nodes.forEach(n => { const d = el('div', 'node', `<div class="top"><span class="name">N${n.id}</span><button class="kill" type="button"></button></div><div class="status"></div><div class="bar2"><i></i></div>`);
+      d.querySelector('.kill').addEventListener('click', () => { sim.nodes[n.id].dead ? revive(sim, n.id) : kill(sim, n.id); draw(); }); box.append(d); });
+  }
+  sim.nodes.forEach((n, i) => { const d = box.children[i];
+    d.className = 'node' + (n.dead ? ' dead' : n.task != null ? ' busy' : '');
+    d.querySelector('.kill').textContent = n.dead ? L('重启', 'Restart') : L('让它宕机', 'Crash it');
+    d.querySelector('.status').textContent = n.dead ? L('宕机', 'crashed') : n.task != null ? L(`在做任务 ${n.task}`, `working on task ${n.task}`) : L('空闲', 'idle');
+    d.querySelector('.bar2 i').style.width = n.task != null ? `${(1 - n.left / K.WORK) * 100}%` : '0'; });
+  for (; shown < sim.log.length; shown++){ const e = sim.log[shown]; $('#log').prepend(el('li', 'k-' + e.kind, `<span class="lt">${e.t.toFixed(1)}s</span><span class="lw">${e.who}</span><span class="lx">${talk === 'plain' ? e.plain : e.term}</span>`)); }
+  const v = $('#verdict');
+  if (sim.doneAt != null) v.innerHTML = `<h3>${L('结果校验', 'Checking the result')}</h3><p class="big ok">${L('全部完成', 'All done')}</p><p>${L(`用时 ${sim.doneAt.toFixed(1)} 秒，一共执行了 ${sim.tries} 次任务（${sim.cfg.tasks} 个任务）。`, `Took ${sim.doneAt.toFixed(1)} s; ${sim.tries} task runs in all (${sim.cfg.tasks} tasks).`)}</p>`;
+  else if (sim.t > 0 && !sim.cfg.retry && sim.tasks.some(x => x.st === 'prog' && sim.nodes[x.node].dead)) v.innerHTML = `<h3>${L('结果校验', 'Checking the result')}</h3><p class="big bad">${L('卡住了', 'Stuck')}</p><p>${L('有任务分给了宕机的节点，又没有超时重新分配，它永远不会完成。', 'A task went to a crashed node and nothing reassigns it on timeout, so it will never finish.')}</p>`;
+}
+function frame(now){ const dt = Math.min(.1, (now - last) / 1000) * speed; last = now; if (playing && sim.doneAt == null){ tick(sim, dt); draw(); if (sim.doneAt != null) setPlaying(false); } requestAnimationFrame(frame); }
+function setTalk(m){ talk = m; try { localStorage.setItem('lab.talk', m); } catch {} document.querySelectorAll('#talk button').forEach(b => b.classList.toggle('on', b.dataset.m === m)); $('#log').innerHTML = ''; shown = 0; draw(); }
+
+$('#play').addEventListener('click', () => { if (sim.doneAt != null) reset(); setPlaying(!playing); });
+$('#step').addEventListener('click', () => { for (let i = 0; i < 10; i++) tick(sim, .05); draw(); });
+$('#reset').addEventListener('click', reset);
+$('#speed').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; speed = +b.dataset.s; document.querySelectorAll('#speed button').forEach(x => x.classList.toggle('on', x === b)); });
+['#optN', '#optT', '#optRetry'].forEach(s => $(s).addEventListener('change', () => { cfg.note = ''; cfg.events = []; readSettings(); writeSettings(); reset(); }));
+$('#talk').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTalk(b.dataset.m); });
+
+/* ---------------- predict, then verify ----------------
+   Each question: a preset scenario, a prediction, and an explanation computed by running that scenario headlessly. */
+const QS = [
+  {title: '干到一半的节点宕机了', preset: {events: [{at: 1, kill: 0}], note: 'N0 在第 1 秒宕机'},
+   setup: '3 个节点，6 个任务。N0 领了任务 0，干到一半联系不上了。', ask: '任务 0 最后会怎样？',
+   opts: ['永远完不成', `等 ${K.TIMEOUT} 秒超时后，交给别的节点重做`, '马上交给别人'], right: 1,
+   explain: () => { const a = runHeadless(mk(QS[0].preset)), b = runHeadless(mk({})); return `组长不知道 N0 宕机了，只知道任务 0 交出去 ${K.TIMEOUT} 秒还没交回，于是重新派出去。这次用时 ${a.doneAt.toFixed(1)} 秒，一共执行了 ${a.tries} 次任务；没人宕机时是 ${b.doneAt.toFixed(1)} 秒、${b.tries} 次。`; }},
+  {title: '关掉超时重新分配', preset: {retry: false, events: [{at: 1, kill: 0}], note: '关掉超时，N0 在第 1 秒宕机'},
+   setup: '和上一题一样，只是组长不再重新派活。', ask: '全部任务还能完成吗？',
+   opts: ['能，只是慢一点', '不能，任务 0 永远卡住'], right: 1,
+   explain: () => { const a = runHeadless(mk(QS[1].preset), 60); return a.doneAt == null ? `跑了 60 秒仍没完成：宕机的节点不会报告失败，没有超时，就没人知道任务 0 需要重做。` : `意外地在 ${a.doneAt.toFixed(1)} 秒完成了。`; }},
+];
+// English text for QS, by index; the scenarios themselves (presets) are shared.
+const QS_EN = [
+  {title: 'A node crashes halfway through', note: 'N0 crashes at 1 s',
+   setup: '3 nodes, 6 tasks. N0 takes task 0 and becomes unreachable halfway through.', ask: 'What happens to task 0 in the end?',
+   opts: ['It never finishes', `After the ${K.TIMEOUT} s timeout it goes to another node`, 'It goes to someone else right away'],
+   explain: () => { const a = runHeadless(mk(QS[0].preset)), b = runHeadless(mk({})); return `The lead doesn't know N0 crashed, only that task 0 has been out for ${K.TIMEOUT} s, so it hands it out again. This run took ${a.doneAt.toFixed(1)} s with ${a.tries} task runs; with no crash it is ${b.doneAt.toFixed(1)} s and ${b.tries} runs.`; }},
+  {title: 'Turn off reassign on timeout', note: 'Timeout off; N0 crashes at 1 s',
+   setup: 'Same as the last question, except the lead never hands work out again.', ask: 'Can every task still finish?',
+   opts: ['Yes, just more slowly', 'No, task 0 is stuck forever'],
+   explain: () => { const a = runHeadless(mk(QS[1].preset), 60); return a.doneAt == null ? `Still not done after 60 s: a crashed node reports nothing, and without a timeout nobody learns that task 0 must be redone.` : `Unexpectedly finished at ${a.doneAt.toFixed(1)} s.`; }},
+];
+if (EN) QS.forEach((q, i) => { const e = QS_EN[i]; Object.assign(q, e, {preset: {...q.preset, note: e.note}}); });
+function mk(p){ return {...BASE, ...p}; }
+function buildQs(){
+  QS.forEach((q, qi) => {
+    const a = el('article', 'q', `<span class="qn">${L('题', 'Q')} ${qi + 1}</span><h3>${q.title}</h3><p class="setup">${q.setup}</p><p class="ask">${q.ask}</p><div class="opts"></div><div class="ans" hidden></div>`);
+    const opts = a.querySelector('.opts'), ans = a.querySelector('.ans');
+    q.opts.forEach((o, oi) => { const b = el('button', 'opt', o); b.type = 'button';
+      b.addEventListener('click', () => {
+        opts.querySelectorAll('.opt').forEach((x, xi) => { x.disabled = true; if (xi === q.right) x.classList.add('right'); });
+        if (oi !== q.right) b.classList.add('wrong');
+        // progress for the course home: answered question indexes
+        try { const k = `course.${EP}.lab.answered`, got = new Set(JSON.parse(localStorage.getItem(k) || '[]')); got.add(qi); localStorage.setItem(k, JSON.stringify([...got])); } catch {}
+        ans.hidden = false;
+        ans.innerHTML = `<p class="res ${oi === q.right ? 'ok' : 'bad'}">${oi === q.right ? L('答对了。', 'Correct.') : L('不对，正确答案已标出。', 'Not quite; the right answer is marked.')}</p><p>${q.explain()}</p>`;
+        const run = el('button', 'btn primary', L('在模拟器里运行这个场景', 'Run this scenario in the simulator')); run.type = 'button';
+        run.addEventListener('click', () => { cfg = mk(q.preset); writeSettings(); reset(); $('#lab').scrollIntoView({behavior: REDUCED ? 'auto' : 'smooth'}); setTimeout(() => setPlaying(true), REDUCED ? 0 : 500); });
+        ans.append(run);
+      });
+      opts.append(b); });
+    $('#qs').append(a);
+  });
+}
+
+writeSettings(); reset(); buildQs(); setTalk(talk); requestAnimationFrame(frame);
+if (/^(127\.0\.0\.1|localhost|\[::1\])$/.test(location.hostname)) $('#homeLink').hidden = false;
+</script>
+</body>
+</html>

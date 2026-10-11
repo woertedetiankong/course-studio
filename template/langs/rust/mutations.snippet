@@ -1,0 +1,7 @@
+	warmup: {
+		no_lower: [{ "lib.rs": [["text.to_lowercase().split", "text.split"]] }, { 1: "case" }],
+		split_spaces: [{ "lib.rs": [["split(|c: char| !c.is_ascii_alphanumeric())", "split(' ')"]] }, { 1: "punctuation" }],
+		keep_empty: [{ "lib.rs": [["        if !w.is_empty() {\n            *counts.entry(w.to_string()).or_insert(0) += 1;\n        }\n", "        *counts.entry(w.to_string()).or_insert(0) += 1;\n"]] }, { 1: "empty" }],
+		no_tiebreak: [{ "lib.rs": [["b.1.cmp(&a.1).then(a.0.cmp(&b.0))", "b.1.cmp(&a.1)"]] }, { 2: "tie_order" }],
+		no_truncate: [{ "lib.rs": [["    v.truncate(k);\n", ""]] }, { 2: "too_many" }],
+	},

@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+/* 中文 / English. The choice is shared with the course site (localStorage 'course.lang'); the default follows the browser.
+   Static text: the Chinese is in the markup and the English in data-en (HTML allowed; avoid double quotes inside, use “ ”).
+   Script text: L(中文, English). Questions: QS_EN overlays QS by index. */
+const EN = (() => { let l = null; try { l = localStorage.getItem('course.lang'); } catch {} if (l !== 'zh' && l !== 'en') l = /^zh\b/i.test(navigator.language || '') ? 'zh' : 'en'; return l === 'en'; })();
+const L = (zh, en) => EN ? en : zh;
+document.documentElement.lang = EN ? 'en' : 'zh-CN';
+</script>
+<title>__EP_TITLE__ 流程图</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+/* Layout: a bento box. Every block is a white tile on a quiet grey ground; color is reserved for state. */
+:root{
+  --bg:#F2F2F0; --tile:#FFFFFF; --soft:#F5F5F3; --soft-2:#FAFAF9; --edge:#E4E4E1; --edge-2:#D6D6D2;
+  --ink:#141414; --ink-2:#3F3F46; --mute:#6E6E73; --faint:#A1A1A6;
+  --acc:#4F46E5; --acc-soft:#EEF0FF; --on-acc:#FFFFFF;
+  --ok:#16A34A; --ok-soft:#ECFDF3; --bad:#DC2626; --bad-soft:#FEF2F2; --warn:#B45309; --warn-soft:#FEF3C7;
+  --l0:#4F46E5; --l1:#D97706; --l2:#059669; --l3:#DB2777;
+  --shadow:0 1px 2px rgba(20,20,20,.04);
+  --f-sans:"Geist","Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"Geist Mono","SFMono-Regular",Menlo,Consolas,"Noto Sans SC",monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0B0B0C; --tile:#161618; --soft:#1D1D20; --soft-2:#1A1A1D; --edge:#26262A; --edge-2:#34343A;
+  --ink:#EDEDEF; --ink-2:#C9C9CF; --mute:#9A9AA2; --faint:#6B6B73;
+  --acc:#8B85FF; --acc-soft:#22213A; --on-acc:#0B0B0C;
+  --ok:#4ADE80; --ok-soft:#13261A; --bad:#F87171; --bad-soft:#2A1414; --warn:#FBBF24; --warn-soft:#2A2110;
+  --l0:#8B85FF; --l1:#FBBF24; --l2:#34D399; --l3:#F472B6;
+  --shadow:none; color-scheme:dark; } }
+:root[data-theme="dark"]{
+  --bg:#0B0B0C; --tile:#161618; --soft:#1D1D20; --soft-2:#1A1A1D; --edge:#26262A; --edge-2:#34343A;
+  --ink:#EDEDEF; --ink-2:#C9C9CF; --mute:#9A9AA2; --faint:#6B6B73;
+  --acc:#8B85FF; --acc-soft:#22213A; --on-acc:#0B0B0C;
+  --ok:#4ADE80; --ok-soft:#13261A; --bad:#F87171; --bad-soft:#2A1414; --warn:#FBBF24; --warn-soft:#2A2110;
+  --l0:#8B85FF; --l1:#FBBF24; --l2:#34D399; --l3:#F472B6;
+  --shadow:none; color-scheme:dark; }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0; background:var(--bg); color:var(--ink); font:15px/1.6 var(--f-sans); -webkit-font-smoothing:antialiased}
+.wrap{max-width:1320px; margin:0 auto; padding-inline:20px; padding-block:36px 72px; display:flex; flex-direction:column; gap:44px}
+h1,h2,h3{margin:0; text-wrap:balance}
+p{margin:0}
+button,select,input,textarea{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--acc); outline-offset:2px}
+code{font:12.5px var(--f-mono); background:var(--soft); border-radius:6px; padding:1px 6px}
+
+/* ---------- header ---------- */
+.hero{display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:16px; align-items:stretch}
+.hero > div:first-child{background:var(--tile); border:1px solid var(--edge); border-radius:22px; padding:28px 30px; display:flex; flex-direction:column; justify-content:flex-end}
+.eyebrow{font:500 13px var(--f-mono); color:var(--acc)}
+.home{ font:500 13px var(--f-sans); color:var(--mute); text-decoration:none; padding:6px 12px; border-radius:10px; background:var(--soft)}
+.home:hover{color:var(--ink)}
+.hero-top{display:flex; align-items:center; gap:10px; margin-bottom:14px}
+.lang{margin-left:auto; display:inline-flex; padding:3px; gap:2px; border-radius:999px; background:var(--soft); border:0; cursor:pointer; font:600 12px/1 var(--f-mono); color:var(--mute)}
+.lang span{padding:5px 9px; border-radius:999px}
+.lang span.on{background:var(--ink); color:var(--bg)}
+.lang:hover span:not(.on){color:var(--ink)}
+.hero h1{font:600 clamp(36px,5vw,56px)/1.05 var(--f-sans); letter-spacing:-.03em; margin-top:10px}
+.lead{margin-top:14px; max-width:36em; color:var(--mute); font-size:15.5px; text-wrap:pretty}
+.path{list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px}
+.path li{background:var(--tile); border:1px solid var(--edge); border-radius:18px; padding:16px 18px; font-size:13px; color:var(--mute); line-height:1.45; display:flex; flex-direction:column; gap:4px; min-width:0}
+.path li::before{content:attr(data-n); font:500 12px var(--f-mono); color:var(--faint)}
+.path li b{font-size:16px; font-weight:600; color:var(--ink)}
+.path li.here{background:var(--acc-soft); border-color:transparent}
+.path li.here b,.path li.here::before{color:var(--acc)}
+
+/* ---------- section heads + analogy ---------- */
+.sec-head{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:16px}
+.sec-head h2{font:600 26px/1.2 var(--f-sans); letter-spacing:-.02em}
+.sec-head p{color:var(--mute); max-width:46em}
+.ana-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px}
+.ana{background:var(--tile); border:1px solid var(--edge); border-radius:18px; padding:14px 16px; display:flex; flex-direction:column; gap:4px; min-width:0}
+.ana b{font:600 16px var(--f-sans)}
+.ana span{font:500 12px var(--f-mono); color:var(--acc); overflow-wrap:anywhere}
+.ana p{font-size:13.5px; color:var(--mute); line-height:1.55; margin-top:2px}
+
+/* ---------- control bar ---------- */
+.lab{display:flex; flex-direction:column; gap:14px}
+.bar{display:flex; flex-wrap:wrap; align-items:center; gap:10px 12px; padding:10px 12px; background:var(--tile); border:1px solid var(--edge); border-radius:20px; position:sticky; top:env(safe-area-inset-top,0px); z-index:5; box-shadow:0 6px 20px -14px rgba(20,20,20,.25)}
+.btn{border:0; background:var(--soft); border-radius:12px; padding:9px 15px; cursor:pointer; font-weight:500; font-size:14px; white-space:nowrap; transition:background .15s}
+.btn:hover{background:var(--edge)}
+.btn.primary{background:var(--ink); color:var(--bg); min-width:92px}
+.btn.primary:hover{opacity:.88; background:var(--ink)}
+.seg{display:inline-flex; background:var(--soft); border-radius:12px; padding:3px; gap:2px}
+.seg button{border:0; background:none; border-radius:9px; padding:6px 10px; cursor:pointer; font:500 12.5px var(--f-mono); color:var(--mute)}
+.seg button.on{background:var(--tile); color:var(--ink); box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.clock{margin-left:auto; display:flex; align-items:center; gap:12px; font-variant-numeric:tabular-nums}
+.clock .t{font:600 26px/1 var(--f-mono); letter-spacing:-.02em}
+.clock .t small{font-size:13px; color:var(--mute); font-weight:400}
+.phase{font:500 12.5px/1 var(--f-sans); padding:7px 11px; border-radius:999px; background:var(--soft); color:var(--mute)}
+.phase.run{background:var(--acc-soft); color:var(--acc)}
+.phase.done{background:var(--ok-soft); color:var(--ok)}
+
+/* ---------- settings ---------- */
+.settings{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px}
+.settings > div{background:var(--tile); border:1px solid var(--edge); border-radius:22px; padding:18px; display:flex; flex-direction:column; gap:6px; min-width:0}
+.lbl{font:500 12.5px/1.3 var(--f-sans); color:var(--mute)}
+select{border:1px solid var(--edge); background:var(--soft-2); border-radius:10px; padding:8px 10px; width:100%}
+.switch{display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer}
+.switch span{display:flex; flex-direction:column; line-height:1.35; font-weight:500; font-size:14px}
+.switch small{color:var(--mute); font-size:12.5px; font-weight:400}
+.switch input{appearance:none; width:40px; height:24px; border-radius:12px; background:var(--edge-2); position:relative; cursor:pointer; flex:none; transition:background .15s; margin:0}
+.switch input::after{content:""; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.2); transition:transform .15s}
+.switch input:checked{background:var(--acc)}
+.switch input:checked::after{transform:translateX(16px)}
+.script{font-size:13px; padding:8px 12px; border-radius:10px; background:var(--warn-soft); color:var(--warn)}
+
+/* ---------- stage: the system being simulated ---------- */
+.stage{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,2fr); gap:14px}
+.stage > .col{background:var(--tile); border:1px solid var(--edge); border-radius:22px; padding:16px; display:flex; flex-direction:column; gap:10px; min-width:0}
+.col > h3{font:600 14px/1.3 var(--f-sans); display:flex; justify-content:space-between; gap:8px}
+.col > h3 em{font:400 12px var(--f-mono); color:var(--mute); font-style:normal}
+.tasks{display:flex; flex-wrap:wrap; gap:8px}
+.chip{min-width:62px; padding:7px 10px 6px; border-radius:12px; background:var(--soft); text-align:center; line-height:1.25; transition:background .2s, box-shadow .2s}
+.chip b{display:block; font:600 14px var(--f-mono)}
+.chip i{font:normal 400 11px var(--f-mono); color:var(--mute)}
+.chip.st-prog{background:var(--acc-soft); box-shadow:inset 0 0 0 1.5px var(--acc)} .chip.st-prog b{color:var(--acc)}
+.chip.st-done{background:var(--ok-soft)} .chip.st-done b{color:var(--ok)}
+.nodes{display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px}
+.node{padding:12px 14px; border-radius:16px; background:var(--soft-2); display:flex; flex-direction:column; gap:8px; transition:background .2s, box-shadow .2s}
+.node .top{display:flex; align-items:center; gap:8px}
+.node .name{font:600 17px/1 var(--f-mono)}
+.node .kill{margin-left:auto; font-size:12.5px; padding:4px 11px; border-radius:9px; border:1px solid var(--edge); background:var(--tile); cursor:pointer; color:var(--ink-2)}
+.node .kill:hover{border-color:var(--bad); color:var(--bad)}
+.node .status{font-size:13.5px; color:var(--ink-2); min-height:1.4em}
+.node .bar2{height:6px; border-radius:3px; background:var(--edge); overflow:hidden}
+.node .bar2 i{display:block; height:100%; width:0; background:var(--acc); border-radius:3px}
+.node.busy{box-shadow:inset 0 0 0 1.5px var(--acc); background:var(--tile)}
+.node.dead{background:var(--bad-soft)} .node.dead .name,.node.dead .status{color:var(--bad)}
+.node.dead .kill{border-color:var(--ok); color:var(--ok)}
+
+/* ---------- log + verdict ---------- */
+.below{display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:14px}
+.panel{background:var(--tile); border:1px solid var(--edge); border-radius:22px; padding:18px 20px; min-width:0}
+.panel-h{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px}
+.panel-h h3,.panel > h3{font:600 14px/1.3 var(--f-sans); margin:0}
+.log{list-style:none; margin:0; padding:0; max-height:300px; overflow:auto; display:flex; flex-direction:column}
+.log li{display:grid; grid-template-columns:58px 56px minmax(0,1fr); gap:10px; padding:7px 0; border-top:1px solid var(--edge); font-size:13.5px; line-height:1.5}
+.log li:first-child{border-top:0}
+.log .lt{font:400 12px/1.9 var(--f-mono); color:var(--faint); font-variant-numeric:tabular-nums}
+.log .lw{font:400 12px/1.9 var(--f-sans); color:var(--mute)}
+.log li.k-ok .lx{color:var(--ok)} .log li.k-bad .lx{color:var(--bad)} .log li.k-warn .lx{color:var(--warn)}
+.verdict{display:flex; flex-direction:column; gap:10px}
+.verdict .big{font:600 24px/1.2 var(--f-sans); letter-spacing:-.02em}
+.verdict .big.ok{color:var(--ok)} .verdict .big.bad{color:var(--bad)}
+.verdict p{color:var(--ink-2); font-size:14px}
+
+/* ---------- predict, then verify ---------- */
+.qs{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px}
+.q{background:var(--tile); border:1px solid var(--edge); border-radius:22px; padding:22px; display:flex; flex-direction:column; gap:12px; min-width:0}
+.q .qn{font:500 12.5px var(--f-mono); color:var(--acc)}
+.q h3{font:600 19px/1.3 var(--f-sans); letter-spacing:-.01em}
+.q .setup{color:var(--mute); font-size:14px}
+.q .ask{font-weight:600}
+.opts{display:flex; flex-direction:column; gap:8px}
+.opt{text-align:left; border:1px solid transparent; background:var(--soft); border-radius:12px; padding:10px 13px; cursor:pointer; font-size:14px; line-height:1.45; transition:background .15s, border-color .15s}
+.opt:hover:not(:disabled){background:var(--edge)}
+.opt:disabled{cursor:default}
+.opt.right{background:var(--ok-soft); border-color:var(--ok)}
+.opt.wrong{background:var(--bad-soft); border-color:var(--bad)}
+.ans{display:flex; flex-direction:column; gap:12px; padding-top:12px; border-top:1px solid var(--edge); font-size:14px; color:var(--ink-2)}
+.ans .res{font-weight:600} .ans .res.ok{color:var(--ok)} .ans .res.bad{color:var(--bad)}
+.ans .btn{align-self:flex-start}
+
+/* ---------- mapping table ---------- */
+.tbl-wrap{overflow-x:auto; background:var(--tile); border:1px solid var(--edge); border-radius:22px}
+table.map{width:100%; border-collapse:collapse; min-width:760px; font-size:14px}
+table.map th{text-align:left; font:500 12.5px var(--f-sans); color:var(--mute); padding:14px 18px; border-bottom:1px solid var(--edge)}
+table.map td{padding:13px 18px; border-bottom:1px solid var(--edge); vertical-align:top; line-height:1.55}
+table.map tr:last-child td{border-bottom:0}
+table.map td:first-child{font-weight:600; white-space:nowrap}
+table.map td.trap{color:var(--bad)}
+footer{font-size:13px; color:var(--faint); border-top:1px solid var(--edge); padding-top:18px}
+
+@media (max-width:1100px){ .settings{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .stage{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:760px){
+  .hero,.below,.qs,.settings{grid-template-columns:minmax(0,1fr)}
+  .clock{margin-left:0; width:100%; justify-content:space-between}
+  .bar{position:static}
+  .log li{grid-template-columns:52px minmax(0,1fr)} .log .lw{display:none}
+}
+@media (prefers-reduced-motion:reduce){ *{animation:none!important; transition:none!important} }
+/* ---------- flowchart page ---------- */
+:root{ --k-hw:#6E6E73; --k-math:#0284C7; --k-wire:#E8590C; --k-app:#B45309; --k-comm:#7C3AED; --k-data:#141414; }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --k-hw:#9A9AA2; --k-math:#6EC8FF; --k-wire:#FF8A5B; --k-app:#FBBF24; --k-comm:#B69CFF; --k-data:#EDEDEF; } }
+:root[data-theme="dark"]{ --k-hw:#9A9AA2; --k-math:#6EC8FF; --k-wire:#FF8A5B; --k-app:#FBBF24; --k-comm:#B69CFF; --k-data:#EDEDEF; }
+.mock{font:500 12.5px var(--f-mono); color:var(--warn); background:var(--warn-soft); border-radius:999px; padding:5px 11px}
+.tabs{display:flex; flex-wrap:wrap; gap:10px; align-items:center}
+.tabs .seg button{font:500 13.5px var(--f-sans); padding:8px 14px}
+.tabs p{color:var(--mute); font-size:14px}
+.board{display:grid; grid-template-columns:minmax(0,1.65fr) minmax(0,1fr); gap:14px; align-items:start}
+.canvas{background:var(--tile); border:1px solid var(--edge); border-radius:22px; padding:14px; min-width:0}
+.canvas svg{width:100%; height:auto; display:block}
+.scroll{overflow-x:auto; -webkit-overflow-scrolling:touch}
+.swipe{display:none; font-size:12.5px; color:var(--faint); padding:0 4px 8px}
+@media (max-width:760px){ .scroll svg{min-width:720px} .swipe{display:block} }
+.stepbar{display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:4px 4px 12px}
+.stepbar .n{font:600 14px var(--f-mono); color:var(--mute); margin-left:auto; font-variant-numeric:tabular-nums}
+.detail{background:var(--tile); border:1px solid var(--edge); border-radius:22px; padding:22px; display:flex; flex-direction:column; gap:14px; position:sticky; top:16px; min-width:0}
+.detail .kind{font:500 12.5px var(--f-mono)}
+.detail h3{font:600 22px/1.25 var(--f-sans); letter-spacing:-.02em}
+.detail .plain{font-size:15px; color:var(--ink-2); line-height:1.65}
+.where{display:flex; flex-direction:column; gap:6px; background:var(--soft); border-radius:14px; padding:12px 14px}
+.where span{font:500 12px var(--f-sans); color:var(--mute)}
+.where code{background:none; padding:0; font-size:13px; overflow-wrap:anywhere; color:var(--ink)}
+details.code{border-radius:14px; background:var(--soft-2); border:1px solid var(--edge)}
+details.code summary{cursor:pointer; padding:10px 14px; font-size:13.5px; color:var(--mute); list-style:none}
+details.code summary::before{content:"▸ "} details.code[open] summary::before{content:"▾ "}
+details.code pre{margin:0; padding:0 14px 14px; font:12.5px/1.6 var(--f-mono); white-space:pre-wrap; overflow-wrap:anywhere; color:var(--ink-2)}
+.vid{align-self:flex-start; text-decoration:none; font-size:13.5px; padding:8px 13px; border-radius:11px; background:var(--soft); color:var(--ink)}
+.hint{font-size:13px; color:var(--faint)}
+/* svg nodes */
+.nd{cursor:pointer}
+.nd rect.box{fill:var(--tile); stroke:var(--edge-2); stroke-width:1.5; transition:fill .2s, stroke .2s}
+.nd{transition:opacity .2s}
+.nd .bar{stroke:none}
+.nd text{font-family:var(--f-sans); fill:var(--ink)}
+.nd .t1{font-size:15px; font-weight:600}
+.nd .t2{font-size:12px; fill:var(--mute); font-family:var(--f-mono)}
+.nd:hover rect.box{stroke:var(--ink-2)}
+.nd.sel rect.box{fill:var(--acc-soft); stroke:var(--acc); stroke-width:2.5}
+.nd.dim{opacity:.32}
+.nd:focus-visible{outline:none} .nd:focus-visible rect.box{stroke:var(--acc); stroke-width:3}
+.nd.empty rect.box{stroke-dasharray:6 5}
+.edge{fill:none; stroke:var(--edge-2); stroke-width:1.8}
+.edge.on{stroke:var(--acc); stroke-width:2.5}
+.edge.fb{stroke-dasharray:7 6}
+.lbl-svg{font:500 12px var(--f-mono); fill:var(--faint)}
+.pulse{fill:var(--acc)}
+.legend{display:flex; flex-wrap:wrap; gap:6px 16px; font-size:12.5px; color:var(--mute); padding:10px 4px 2px}
+.legend i{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:-1px}
+@media (max-width:980px){ .board{grid-template-columns:minmax(0,1fr)} .detail{position:static} }
+</style>
+</head>
+<body>
+<!--
+  Flowchart page (看流程图) — for learners who don't read code yet. Keep the structure:
+    hero + learning path → tabs with 1–3 diagrams of the same program (structure / timing / one trip through the data)
+    → canvas (SVG drawn from data) + detail panel → 想一想 questions.
+  Everything comes from the D object in the script: each diagram has nodes {id, x, y, w, h, kind, t, s, plain, file, fn, code?, video}
+  and edges [from, to, 'dash'|'fb'?]; set steps: true for a step-through trip. The sample data is ServoHub episode 1
+  (the five layers, three interrupts, one CANopen instruction): replace it, and check every file/function name against the source.
+  Answered questions go to localStorage 'course.<epId>.flow.answered'; keep flow.questions in course.js equal to QS.length.
+  See references/flow-page.md.
+-->
+<div class="wrap">
+  <header class="hero">
+    <div>
+      <div class="hero-top"><a class="home" id="homeLink" href="/" hidden data-en="← Course home">← 课程首页</a><button class="lang" id="langBtn" type="button"></button></div>
+      <p class="eyebrow" data-en="__COURSE_TITLE_EN__ · Episode __EP_N__ · Flowchart">__COURSE_TITLE__ · 第 __EP_N__ 集 · 流程图</p>
+      <h1 data-en="Walk through the big map">把全景地图走一遍</h1>
+      <p class="lead" data-en="No code reading needed. Click any box to see what it does in plain words and where it lives in the source. Want the real code? Each box has it folded away.">不用读代码。点任何一个方框，就能看到它用大白话讲是干什么的、在源码的哪个文件。想看真代码的，每个方框里也折叠好了。</p>
+    </div>
+    <ol class="path" aria-label="学习顺序" data-en-label="Learning path">
+      <li data-n="01" data-en="<b>Watch</b>the big map"><b>看视频</b>全景地图</li>
+      <li data-n="02" data-en="<b>Read</b>main.c and board.c"><b>读材料</b>main.c 和 board.c</li>
+      <li data-n="03" data-en="<b>Experiment</b>one loop or three doorbells"><b>玩实验台</b>一个大循环还是三个门铃</li>
+      <li data-n="04" class="here" data-en="<b>Flowchart</b>this page"><b>看流程图</b>就是这一页</li>
+    </ol>
+  </header>
+
+  <section aria-labelledby="fc-h">
+    <div class="sec-head"><h2 id="fc-h" data-en="Three pictures of the same program">同一个程序的三张图</h2></div>
+    <div class="tabs">
+      <div class="seg" id="tabs" role="tablist" aria-label="选一张图" data-en-label="Pick a diagram">
+        <button type="button" data-t="layers" data-en="① Five layers">① 五层结构</button>
+        <button type="button" data-t="bells" data-en="② Three doorbells">② 三个门铃</button>
+        <button type="button" data-t="trip" data-en="③ One instruction, all the way">③ 一条指令走到底</button>
+      </div>
+      <p id="tabNote"></p>
+    </div>
+  </section>
+
+  <section class="board">
+    <div class="canvas">
+      <div class="stepbar" id="stepbar" hidden>
+        <button class="btn" id="prev" type="button" data-en="◀ Back">◀ 上一步</button>
+        <button class="btn primary" id="next" type="button" data-en="Next ▶">下一步 ▶</button>
+        <button class="btn" id="auto" type="button" data-en="Auto-play">自动播放</button>
+        <span class="n" id="stepN"></span>
+      </div>
+      <p class="swipe" data-en="Swipe sideways to see the whole diagram →">左右滑动查看整张图 →</p><div class="scroll"><svg id="svg" role="img"></svg></div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <aside class="detail" id="detail" aria-live="polite"></aside>
+  </section>
+
+  <section aria-labelledby="qs-h">
+    <div class="sec-head"><h2 id="qs-h" data-en="Think about it">想一想</h2><p data-en="One question per picture. Pick first, then look.">每张图一道题，先选再看。</p></div>
+    <div class="qs" id="qs"></div>
+  </section>
+
+  <footer data-en="Source: magic-alt/servohub (commit 94fc13d). Function names and files are checked against the source; the diagrams leave out details on purpose.">资料：magic-alt/servohub（提交 94fc13d）。函数名和文件都对照源码核对过；图里故意省略了细节。</footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+document.title = L(`__EP_TITLE__ 流程图`, `__EP_TITLE_EN__ flowchart`);  // backticks: titles may contain apostrophes
+if (EN){
+  document.querySelectorAll('[data-en]').forEach(e => { e.innerHTML = e.dataset.en; });
+  document.querySelectorAll('[data-en-label]').forEach(e => e.setAttribute('aria-label', e.dataset.enLabel));
+}
+$('#langBtn').innerHTML = `<span class="${EN ? '' : 'on'}">中</span><span class="${EN ? 'on' : ''}">EN</span>`;
+$('#langBtn').addEventListener('click', () => { try { localStorage.setItem('course.lang', EN ? 'zh' : 'en'); } catch {} location.reload(); });
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const EP = 'ep__EP_NN__';                     // must match the episode id in course.js
+const VIDEO = 'video.mp4';                    // sync_content.py puts the video next to this page; links use #t=seconds
+const KIND = {hw: ['--k-hw', L('第 1 层 · 硬件', 'Layer 1 · hardware')], math: ['--k-math', L('第 2 层 · 控制算法', 'Layer 2 · control math')],
+  wire: ['--k-wire', L('第 3 层 · 控制循环', 'Layer 3 · loop wiring')], app: ['--k-app', L('第 4 层 · 运动模式', 'Layer 4 · modes')],
+  comm: ['--k-comm', L('第 5 层 · 通信', 'Layer 5 · communication')], data: ['--k-data', L('共享白板', 'shared whiteboard')]};
+
+/* Each node: id, x, y, w, h, kind, t (title), s (small line), plain, file, fn, code (real lines, trimmed), video (seconds) */
+const N = (o) => o;
+const D = {
+ layers: {note: L('从下往上：越下面越快、越简单；越上面越慢、越会判断。', 'Bottom to top: lower is faster and simpler, higher is slower and smarter.'), vb: [1000, 560],
+  nodes: [
+   N({id: 'L5', x: 40, y: 20, w: 920, h: 90, kind: 'comm', t: L('5 · 耳朵：通信', '5 · Ears: communication'), s: 'communication/', video: 509,
+     plain: L('听外面的指令。CANopen、EtherCAT 来自工业设备，MAVLink 连电脑上的调试软件。不管哪种“语言”，最后都变成两件事：改一个数值，或者选一个模式。', 'Listens for instructions. CANopen and EtherCAT come from factory machines; MAVLink talks to a debug app on a PC. Whatever the language, each message ends up as one of two things: change a value, or pick a mode.'),
+     file: 'communication/protocol/  ·  communication/callback/', fn: L('协议栈是外部代码；callback/ 是 ServoHub 自己写的接线', 'Protocol stacks are outside code; callback/ is ServoHub’s own glue')}),
+   N({id: 'L4', x: 40, y: 125, w: 920, h: 90, kind: 'app', t: L('4 · 大脑：运动模式', '4 · Brain: modes'), s: 'app/', video: 465,
+     plain: L('决定“现在做哪件事”：去某个位置、按某个速度转、按某个力矩推、像弹簧一样（MIT 模式），或者给电机做体检。所有模式都在一张表里，每个都有初始化、开始、运行、停止四个按钮。', 'Decides what to do now: go to a position, spin at a speed, push with a torque, act like a spring (MIT mode), or give the motor a check-up. All modes sit in one table, each with the same four buttons: init, start, run, stop.'),
+     file: 'app/app_scheduler.c', fn: 'app_table[ ]  ·  AppRun()', code: '{APP_PP_MODE,  PpModeInit,  PpModeStart,  PpModeRun,  PpModeStop,  APP_TYPE_PDS},\n{APP_MIT_MODE, MitModeInit, MitModeStart, MitModeRun, MitModeStop, APP_TYPE_PDS},\n{APP_CSP_MODE, CspModeInit, CspModeStart, CspModeRun, CspModeStop, APP_TYPE_PDS},'}),
+   N({id: 'L3', x: 40, y: 230, w: 920, h: 90, kind: 'wire', t: L('3 · 脊髓：控制循环', '3 · Spinal cord: loop wiring'), s: 'motor_control/', video: 422,
+     plain: L('把算法和硬件接在一起。电流环只有三步：向最底层要电流、交给算法去算、把算出的电压交回去。这里还有一个“裁判”状态机，决定电机能不能动。', 'Wires the math to the hardware. The current loop is just three steps: ask the bottom layer for the currents, hand them to the math, send the voltages back down. A state-machine “referee” here decides whether the motor may move.'),
+     file: 'motor_control/motor_ctl_loop.c', fn: 'CurrentLoopCtrl()  ·  PosSpeedLoopCtrl()', code: 'void CurrentLoopCtrl(void)\n{\n    bsp_get_phase_current(kAxis.current_ctl_input.iabc_now_A);\n    CurrentCtlLoopTask(&kAxis, &kAxisDw);\n    bsp_set_phase_voltage(kAxis.current_ctl_output.uabc_tar_comp_V);\n}'}),
+   N({id: 'L2', x: 40, y: 335, w: 920, h: 90, kind: 'math', t: L('2 · 反射和平衡：控制算法', '2 · Reflexes and balance: control math'), s: 'simulink_code_gen/', video: 381,
+     plain: L('电流环、速度环、位置环、滤波器、电机参数辨识。工程师在 Simulink 里画方框图，再自动生成 C 代码，所以这里的代码读起来很别扭，先看图更容易懂。', 'Current, speed and position loops, filters, motor self-measurement. Engineers drew them as Simulink block diagrams and generated C from them, which is why this code reads strangely: look at the drawing first.'),
+     file: 'simulink_code_gen/current_ctl_loop_task.c', fn: L('由 simulink_project/controller/*.slx 生成', 'generated from simulink_project/controller/*.slx'), code: 'rtb_SinCos_o1 = yuanhub_sin_f32(rtb_u_tar_comp_a);\nrtb_SinCos_o2 = yuanhub_cos_f32(rtb_u_tar_comp_a);'}),
+   N({id: 'L1', x: 40, y: 440, w: 920, h: 90, kind: 'hw', t: L('1 · 神经和肌肉：硬件层', '1 · Nerves and muscles: hardware'), s: 'embedded_project/  ·  board_public/', video: 336,
+     plain: L('直接接触芯片：引脚、定时器、传感器。上面几层只会说“给我电流”“把电压设成这么多”，具体这块板子怎么做，只有这一层知道。换板子时主要改这一层。', 'Touches the chip: pins, timers, sensors. Upper layers only say “give me the current” or “set this voltage”; only this layer knows how this board does it. Moving to a new board mostly means rewriting this layer.'),
+     file: 'board_public/bsp_api.h', fn: L('“请求菜单”：bsp_get_phase_current()、bsp_set_phase_voltage() …', 'the request menu: bsp_get_phase_current(), bsp_set_phase_voltage() …'), code: 'void sys_set_bsp_error_state(BSP_ERROR_CODE type, BSP_ERROR_OPERATION op);\nbool sys_get_hardware_self_test_status(void);\nVOLTAGE_CHECK_STATUS sys_bus_voltage_check(void);'}),
+  ], edges: []},
+ bells: {note: L('main 只负责准备好硬件，然后就“发呆”；真正的活全在三个门铃（中断）里。', 'main only sets up the hardware and then daydreams; all the real work happens in three doorbells (interrupts).'), vb: [1000, 640],
+  nodes: [
+   N({id: 'main', x: 60, y: 20, w: 250, h: 64, kind: 'hw', t: 'main()', s: 'Core/Src/main.c', video: 233,
+     plain: L('程序的起点。先把芯片和板子准备好，然后进入一个永远转圈的循环。', 'Where the program starts. Sets up the chip and the board, then enters a loop that never ends.'),
+     file: 'embedded_project/Y01/Core/Src/main.c', fn: 'main()', code: '// 硬件及应用初始化\nHalInit();\nBspInit();\n...\nwhile (1)\n{\n}'}),
+   N({id: 'init', x: 375, y: 20, w: 250, h: 64, kind: 'hw', t: 'HalInit() · BspInit()', s: L('准备硬件', 'set up hardware'), video: 240,
+     plain: L('设置时钟、ADC、定时器、通信口，并把三个门铃（中断）打开。从这以后，门铃就会按自己的节拍响。', 'Sets up clocks, ADCs, timers and ports, and switches on the three doorbells (interrupts). From then on they ring on their own schedule.'),
+     file: 'board_public/system_manage/system_init.c', fn: 'MotorCtrlInit()  ·  AppInit()'}),
+   N({id: 'loop', x: 690, y: 20, w: 250, h: 64, kind: 'hw', t: 'while (1) { }', s: L('空的', 'empty'), empty: true, video: 247,
+     plain: L('里面什么都没写。芯片在这里“发呆”，直到某个门铃响起。就像你在发呆，心跳照样按自己的节拍跳。', 'Nothing inside. The chip daydreams here until a doorbell rings, like your heart beating on its own while your mind wanders.'),
+     file: 'embedded_project/Y01/Core/Src/main.c', fn: 'while (1)', code: 'while (1)\n{\n    /* USER CODE END WHILE */\n    /* USER CODE BEGIN 3 */\n}'}),
+   N({id: 'isrC', x: 40, y: 150, w: 290, h: 70, kind: 'wire', t: L('电流环门铃 · 20 kHz', 'Current doorbell · 20 kHz'), s: 'CURRENT_LOOP_IRQ_TASK', video: 270,
+     plain: L('每 50 微秒响一次，最紧急。先确认硬件自检和电流校准通过，再跑电流环。', 'Rings every 50 µs, the most urgent. Runs the current loop once the hardware self-test and current calibration have passed.'),
+     file: 'embedded_project/Y01/Board/board.c', fn: 'CURRENT_LOOP_IRQ_TASK()', code: 'if (sys_get_hardware_self_test_status() == true &&\n    sys_get_current_calibration_status() == CURRENT_CALIBRATION_STATUS_OK)\n{\n    CurrentLoopCtrl();\n}'}),
+   N({id: 'isrP', x: 355, y: 150, w: 290, h: 70, kind: 'wire', t: L('位置环门铃 · 10 kHz', 'Position doorbell · 10 kHz'), s: 'POSITION_LOOP_TIM_IRQ_TASK', video: 287,
+     plain: L('每 100 微秒响一次。先读编码器（位置传感器），再跑位置速度环。', 'Rings every 100 µs. Reads the encoder (position sensor), then runs the position and speed loop.'),
+     file: 'embedded_project/Y01/Board/board.c', fn: 'POSITION_LOOP_TIM_IRQ_TASK()', code: 'EncoderDataRead();\nEncoderDataProcess();\n...\nPosSpeedLoopCtrl();'}),
+   N({id: 'isrH', x: 670, y: 150, w: 290, h: 70, kind: 'wire', t: L('日常事务门铃 · 1 kHz', 'Housekeeping doorbell · 1 kHz'), s: 'NRT_CAN_ECAT_IRQ_TASK', video: 294,
+     plain: L('每 1 毫秒响一次，做不那么急的事。同一个中断函数也负责分发 CANopen 消息。', 'Rings every 1 ms for the less urgent jobs. The same interrupt handler also dispatches CANopen messages.'),
+     file: 'embedded_project/Y01/Board/board.c', fn: 'NRT_CAN_ECAT_IRQ_TASK()', code: 'if (htim->Instance == NRT_TASK_TIM_HANDLE.Instance)\n{\n    UnrealTimeBase1ms();\n}'}),
+   N({id: 'cur1', x: 40, y: 270, w: 290, h: 62, kind: 'wire', t: 'CurrentLoopCtrl()', s: 'motor_ctl_loop.c', video: 422,
+     plain: L('电流环本体，只有三步：读、算、做。', 'The current loop itself: read, compute, act.'), file: 'motor_control/motor_ctl_loop.c', fn: 'CurrentLoopCtrl()'}),
+   N({id: 'cur2', x: 40, y: 360, w: 290, h: 62, kind: 'hw', t: L('① 读三相电流', '① Read the 3 currents'), s: 'bsp_get_phase_current()', video: 435,
+     plain: L('向最底层要电机三根线上的电流。', 'Asks the bottom layer for the current in the motor’s three wires.'), file: 'board_public/bsp_api.h', fn: 'bsp_get_phase_current()'}),
+   N({id: 'cur3', x: 40, y: 450, w: 290, h: 62, kind: 'math', t: L('② 电流环算法', '② Current-loop math'), s: 'CurrentCtlLoopTask()', video: 440,
+     plain: L('把电流交给第 2 层的算法，算出该加多大电压。', 'Hands the currents to the layer-2 math, which works out the voltages.'), file: 'motor_control/motor_ctl_sm.c → simulink_code_gen/current_ctl_loop_task.c', fn: 'CurrentCtlLoopTask()'}),
+   N({id: 'cur4', x: 40, y: 540, w: 290, h: 62, kind: 'hw', t: L('③ 输出电压', '③ Set the voltages'), s: 'bsp_set_phase_voltage()', video: 445,
+     plain: L('把算出的三个电压交回最底层，变成 PWM 开关信号。', 'Sends the three voltages back down, where they become PWM switching.'), file: 'embedded_project/Y01/Board/bsp_api.c', fn: 'bsp_set_phase_voltage()'}),
+   N({id: 'pos1', x: 355, y: 270, w: 290, h: 62, kind: 'hw', t: L('读编码器', 'Read the encoder'), s: 'EncoderDataRead()', video: 287,
+     plain: L('读位置传感器，知道电机现在转到哪了。', 'Reads the position sensor to learn where the motor is now.'), file: 'embedded_project/Y01/Board/drv_encoder.c', fn: 'EncoderDataRead()'}),
+   N({id: 'pos2', x: 355, y: 360, w: 290, h: 62, kind: 'wire', t: 'PosSpeedLoopCtrl()', s: 'motor_ctl_loop.c', video: 287,
+     plain: L('位置速度环的入口，里面先让“大脑”跑一下，再算位置和速度。', 'Entry to the position and speed loop: first lets the “brain” run, then computes position and speed.'), file: 'motor_control/motor_ctl_loop.c', fn: 'PosSpeedLoopCtrl()'}),
+   N({id: 'pos3', x: 355, y: 450, w: 290, h: 62, kind: 'app', t: L('大脑：当前模式跑一步', 'Brain: the active mode runs'), s: 'AppRun()', video: 500,
+     plain: L('调度器替当前模式按下“运行”按钮。所以模式是在位置环的门铃里运行的。', 'The scheduler presses “run” for the active mode, so modes run inside the position-loop doorbell.'), file: 'app/app_scheduler.c', fn: 'AppRun()'}),
+   N({id: 'pos4', x: 355, y: 540, w: 290, h: 62, kind: 'math', t: L('位置环 + 速度环算法', 'Position + speed math'), s: 'PosSpeedCtlLoopTask()', video: 381,
+     plain: L('比较“该在哪”和“现在在哪”，算出需要的速度，再算出需要的电流。', 'Compares where we should be with where we are, works out a speed, then a current.'), file: 'motor_control/motor_ctl_sm.c', fn: 'PosSpeedCtlLoopTask()'}),
+   N({id: 'h1', x: 670, y: 270, w: 290, h: 62, kind: 'wire', t: 'UnrealTimeBase1ms()', s: 'motor_ctl_loop.c', video: 294,
+     plain: L('每毫秒一次的日常事务清单。', 'The once-a-millisecond housekeeping list.'), file: 'motor_control/motor_ctl_loop.c', fn: 'UnrealTimeBase1ms()'}),
+   N({id: 'h2', x: 670, y: 360, w: 290, h: 62, kind: 'hw', t: L('电压、温度', 'Voltage, temperatures'), s: 'bsp_get_dc_bus_voltage() …', video: 294,
+     plain: L('读母线电压、驱动器温度、芯片温度、电机温度，并做平滑滤波。', 'Reads the bus voltage and the driver, chip and motor temperatures, and smooths them.'), file: 'motor_control/motor_ctl_loop.c', fn: 'UnrealTimeBase1ms()'}),
+   N({id: 'h3', x: 670, y: 450, w: 290, h: 62, kind: 'app', t: L('抱闸控制', 'Brake control'), s: 'AppBrakeControlRun()', video: 294,
+     plain: L('管理电机的机械刹车什么时候松、什么时候抱。', 'Decides when the motor’s mechanical brake opens and closes.'), file: 'app/app_brake_control.c', fn: 'AppBrakeControlRun()'}),
+   N({id: 'h4', x: 670, y: 540, w: 290, h: 62, kind: 'app', t: L('保存参数', 'Save settings'), s: 'AppStoreUpdata1ms()', video: 294,
+     plain: L('需要时把参数写进 flash，断电也不丢。写 flash 很慢，所以放在最慢的门铃里。', 'Writes settings to flash when needed so they survive power-off. Flash writes are slow, so they live in the slowest doorbell.'), file: 'app/app_store_param.c', fn: 'AppStoreUpdata1ms()'}),
+  ],
+  edges: [['main', 'init'], ['init', 'loop'], ['init', 'isrC', 'dash'], ['init', 'isrP', 'dash'], ['init', 'isrH', 'dash'], ['isrC', 'cur1'], ['cur1', 'cur2'], ['cur2', 'cur3'], ['cur3', 'cur4'], ['isrP', 'pos1'], ['pos1', 'pos2'], ['pos2', 'pos3'], ['pos3', 'pos4'], ['isrH', 'h1'], ['h1', 'h2'], ['h2', 'h3'], ['h3', 'h4']]},
+ trip: {note: L('点「下一步」，跟着“转到 90°”这条指令一层层往下走。虚线是编码器把位置报回来。', 'Press “Next” and follow “go to 90°” down through the layers. The dashed line is the encoder reporting back.'), vb: [1000, 700], steps: true,
+  nodes: [
+   N({id: 's1', x: 250, y: 15, w: 500, h: 66, kind: 'comm', t: L('① CANopen 报文到达', '① A CANopen message arrives'), s: 'CANopen_DispatchFromISR()', video: 585,
+     plain: L('主电脑说：转到 90°。报文由一个定时器中断取出来交给 CANopen 协议栈。', 'The main computer says: go to 90°. A timer interrupt picks up the message and hands it to the CANopen stack.'), file: 'embedded_project/Y01/Board/drv_can_app.c', fn: 'CANopen_DispatchFromISR()'}),
+   N({id: 's2', x: 250, y: 100, w: 500, h: 66, kind: 'comm', t: L('② 写对象字典 0x607A', '② Write object 0x607A'), s: 'OD_0x607A_Target_position_Write_Callback()', video: 593,
+     plain: L('0x607A 是 CiA402 标准里“目标位置”的编号。写它，就会调用这个回调函数。', '0x607A is the CiA402 number for “target position”. Writing it calls this callback.'), file: 'communication/callback/cia402_od/Cia402_ObjectDictionary_Callback.c', fn: 'OD_0x607A_Target_position_Write_Callback()', code: 'abort_code = set_Target_position(*(INTEGER32*)value);'}),
+   N({id: 's3', x: 250, y: 185, w: 500, h: 66, kind: 'data', t: L('③ 写到白板上', '③ Written on the whiteboard'), s: 'set_app_Target_position()', video: 593,
+     plain: L('目标位置被记到共享数据里，谁需要谁来读。', 'The target goes into the shared data, for whoever needs it.'), file: 'communication/callback/cia402_od/Cia402_ObjectDictionary_Variable.c → database/data_param.c', fn: 'set_Target_position() → set_app_Target_position()', code: 'kProfile_position_mode.Target_position = val;\nset_app_Target_position(val);'}),
+   N({id: 's4', x: 250, y: 270, w: 500, h: 66, kind: 'app', t: L('④ CSP 模式读目标、规划路线', '④ CSP mode reads it and plans a path'), s: 'CspModeRun() → CspTrajectoryPlanningHandle()', video: 597,
+     plain: L('当前模式（这里是周期同步位置 CSP）读到新目标，规划一条平滑的路线，每个周期往前走一小步。', 'The active mode (cyclic synchronous position, CSP) reads the new target and plans a smooth path, one small step per cycle.'), file: 'app/app_cyclic_sync_position_mode.c  ·  app/app_trajectory.c', fn: 'CspModeRun()', code: 'kCspMode.pos_tar_last_p = get_app_Target_position();\n...\nCspTrajectoryPlanningHandle(&kCspMode.traj);'}),
+   N({id: 's5', x: 250, y: 355, w: 500, h: 66, kind: 'math', t: L('⑤ 位置环 → 速度环 → 目标电流', '⑤ Position → speed → target current'), s: 'PosSpeedCtlLoopTask()', video: 604,
+     plain: L('比较“现在在哪”和“该在哪”，算出要多快；再比较速度，算出要多大电流。', 'Compares where we are with where we should be to get a speed, then compares speeds to get a current.'), file: 'motor_control/motor_ctl_sm.c', fn: 'PosSpeedCtlLoopTask()'}),
+   N({id: 's6', x: 250, y: 440, w: 500, h: 66, kind: 'wire', t: L('⑥ 电流环 → 三个电压', '⑥ Current loop → three voltages'), s: 'CurrentLoopCtrl() → CurrentCtlLoopTask()', video: 611,
+     plain: L('每 50 微秒一次，把实际电流拉向目标电流，算出三个电压。', 'Every 50 µs, pulls the real current toward the target and works out three voltages.'), file: 'motor_control/motor_ctl_loop.c', fn: 'CurrentLoopCtrl()'}),
+   N({id: 's7', x: 250, y: 525, w: 500, h: 66, kind: 'hw', t: L('⑦ PWM 开关 → 电机转', '⑦ PWM switching → the motor turns'), s: 'bsp_set_phase_voltage()', video: 621,
+     plain: L('最底层把电压变成飞快的开关信号，电机转起来。', 'The bottom layer turns the voltages into fast switching, and the motor turns.'), file: 'embedded_project/Y01/Board/bsp_api.c', fn: 'bsp_set_phase_voltage()'}),
+   N({id: 's8', x: 250, y: 610, w: 500, h: 66, kind: 'hw', t: L('⑧ 编码器报回位置', '⑧ The encoder reports back'), s: 'EncoderDataRead() → bsp_get_encoder_cnt()', video: 621,
+     plain: L('位置传感器读出新位置，交回第 ⑤ 步。每秒 1 万次，直到膝盖到位。', 'The position sensor reads the new angle and feeds step ⑤ again, ten thousand times a second, until the knee arrives.'), file: 'embedded_project/Y01/Board/drv_encoder.c', fn: 'EncoderDataRead()'}),
+  ],
+  edges: [['s1', 's2'], ['s2', 's3'], ['s3', 's4'], ['s4', 's5'], ['s5', 's6'], ['s6', 's7'], ['s7', 's8'], ['s8', 's5', 'fb']]},
+};
+
+/* ---------------- drawing ---------------- */
+const NS = 'http://www.w3.org/2000/svg';
+const sv = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) if (attrs[k] != null) e.setAttribute(k, attrs[k]); if (parent) parent.append(e); return e; };
+let tab = (() => { try { return localStorage.getItem('flow.tab') || 'layers'; } catch { return 'layers'; } })(), sel = null, step = 0, autoT = null;
+function edgePath(a, b, kind){
+  if (kind === 'fb') { const x = a.x + a.w + 40; return `M${a.x + a.w},${a.y + a.h / 2} C${x + 40},${a.y + a.h / 2} ${x + 40},${b.y + b.h / 2} ${b.x + b.w},${b.y + b.h / 2}`; }
+  const ax = a.x + a.w / 2, ay = a.y + a.h, bx = b.x + b.w / 2, by = b.y;
+  if (Math.abs(a.y - b.y) < 5) return `M${a.x + a.w},${a.y + a.h / 2} L${b.x},${b.y + b.h / 2}`;
+  const my = (ay + by) / 2; return `M${ax},${ay} C${ax},${my} ${bx},${my} ${bx},${by}`;
+}
+function render(){
+  const g = D[tab], svg = $('#svg'); svg.innerHTML = ''; svg.setAttribute('viewBox', `0 0 ${g.vb[0]} ${g.vb[1]}`);
+  svg.setAttribute('aria-label', $(`#tabs button[data-t="${tab}"]`).textContent);
+  const defs = sv('defs', {}, svg), mk = sv('marker', {id: 'ah', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse'}, defs);
+  sv('path', {d: 'M0,0 L10,5 L0,10 z', fill: 'var(--edge-2)'}, mk);
+  const mk2 = sv('marker', {id: 'ah2', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse'}, defs); sv('path', {d: 'M0,0 L10,5 L0,10 z', fill: 'var(--acc)'}, mk2);
+  const byId = Object.fromEntries(g.nodes.map(n => [n.id, n]));
+  const active = g.steps ? new Set(g.nodes.slice(0, step + 1).map(n => n.id)) : null;
+  for (const [a, b, k] of g.edges){
+    const on = g.steps && active.has(a) && active.has(b) && (k !== 'fb' || step >= g.nodes.length - 1);
+    sv('path', {d: edgePath(byId[a], byId[b], k), class: 'edge' + (on ? ' on' : '') + (k === 'fb' ? ' fb' : '') , 'stroke-dasharray': k === 'dash' ? '4 5' : null, 'marker-end': `url(#${on ? 'ah2' : 'ah'})`}, svg);
+  }
+  if (tab === 'bells') { sv('text', {x: 500, y: 128, 'text-anchor': 'middle', class: 'lbl-svg'}, svg).textContent = L('打开三个门铃后，它们按自己的节拍响', 'once switched on, each doorbell rings on its own timer'); }
+  for (const n of g.nodes){
+    const dim = g.steps && !active.has(n.id), c = `var(${KIND[n.kind][0]})`;
+    const grp = sv('g', {class: 'nd' + (sel === n.id ? ' sel' : '') + (dim ? ' dim' : '') + (n.empty ? ' empty' : ''), tabindex: 0, role: 'button', 'aria-label': n.t}, svg);
+    sv('rect', {class: 'box', x: n.x, y: n.y, width: n.w, height: n.h, rx: 14}, grp);
+    sv('rect', {class: 'bar', x: n.x, y: n.y + 12, width: 5, height: n.h - 24, rx: 2.5, fill: c}, grp);
+    const big = n.h >= 80;
+    const t1 = sv('text', {x: n.x + 22, y: n.y + (big ? 38 : 27), class: 't1'}, grp); t1.textContent = n.t; if (big) t1.setAttribute('style', 'font-size:20px');
+    const t2 = sv('text', {x: n.x + 22, y: n.y + (big ? 64 : 48), class: 't2'}, grp); t2.textContent = n.s;
+    grp.addEventListener('click', () => pick(n.id)); grp.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(n.id); } });
+  }
+  // a dot travelling down the trip
+  if (g.steps && step > 0 && !REDUCED){ const a = g.nodes[step - 1], b = g.nodes[step]; const p = sv('circle', {r: 7, class: 'pulse'}, svg);
+    sv('animateMotion', {dur: '0.7s', fill: 'freeze', path: edgePath(a, b, step === g.nodes.length ? 'fb' : '')}, p); }
+  $('#legend').innerHTML = Object.entries(KIND).filter(([k]) => g.nodes.some(n => n.kind === k)).map(([k, v]) => `<span><i style="background:var(${v[0]})"></i>${v[1]}</span>`).join('');
+  $('#tabNote').textContent = g.note;
+  $('#stepbar').hidden = !g.steps; if (g.steps) $('#stepN').textContent = `${step + 1} / ${g.nodes.length}`;
+  document.querySelectorAll('#tabs button').forEach(b => { b.classList.toggle('on', b.dataset.t === tab); b.setAttribute('aria-selected', b.dataset.t === tab); });
+  detail();
+}
+const mmss = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+function detail(){
+  const g = D[tab], n = g.nodes.find(x => x.id === sel), box = $('#detail');
+  if (!n){ box.innerHTML = `<p class="kind" style="color:var(--acc)">${L('怎么用', 'How to use')}</p><h3>${L('点任意一个方框', 'Click any box')}</h3><p class="plain">${L('右边会出现它的大白话解释、在源码的哪个文件，以及视频里讲到它的位置。', 'You will see a plain-words explanation, the file it lives in, and where the video covers it.')}</p><p class="hint">${L('键盘：Tab 选中方框，回车打开。', 'Keyboard: Tab to a box, Enter to open it.')}</p>`; return; }
+  const k = KIND[n.kind];
+  box.innerHTML = `<p class="kind" style="color:var(${k[0]})">${k[1]}</p><h3>${n.t}</h3><p class="plain">${n.plain}</p>
+    <div class="where"><span>${L('在源码的哪里', 'Where in the source')}</span><code>${n.file}</code>${n.fn ? `<code>${n.fn}</code>` : ''}</div>
+    ${n.code ? `<details class="code"><summary>${L('想看真代码？（可跳过）', 'Want the real code? (optional)')}</summary><pre></pre></details>` : ''}
+    <a class="vid" href="${VIDEO}#t=${n.video}">▶ ${L(`视频 ${mmss(n.video)} 讲到这里`, `Covered at ${mmss(n.video)} in the video`)}</a>`;
+  if (n.code) box.querySelector('pre').textContent = n.code;
+}
+function pick(id){ sel = id; const g = D[tab]; if (g.steps){ const i = g.nodes.findIndex(n => n.id === id); if (i > step) step = i; } render(); }
+function setTab(t){ tab = t; sel = null; step = 0; stopAuto(); try { localStorage.setItem('flow.tab', t); } catch {} render(); }
+function go(d){ const g = D[tab]; step = Math.max(0, Math.min(g.nodes.length - 1, step + d)); sel = g.nodes[step].id; render(); }
+function stopAuto(){ clearInterval(autoT); autoT = null; $('#auto').textContent = L('自动播放', 'Auto-play'); }
+$('#tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTab(b.dataset.t); });
+$('#next').addEventListener('click', () => go(1)); $('#prev').addEventListener('click', () => go(-1));
+$('#auto').addEventListener('click', () => { if (autoT) return stopAuto(); if (step >= D[tab].nodes.length - 1) { step = -1; } $('#auto').textContent = L('停止', 'Stop'); autoT = setInterval(() => { if (step >= D[tab].nodes.length - 1) return stopAuto(); go(1); }, 2200); });
+
+/* ---------------- think about it ---------------- */
+const QS = [
+  {title: L('换一块新电路板', 'Moving to a new board'), ask: L('主要要重写哪一层？', 'Which layer do you mostly rewrite?'),
+   opts: [L('第 4 层：运动模式', 'Layer 4: modes'), L('第 1 层：硬件层', 'Layer 1: hardware'), L('全部五层', 'All five')], right: 1, show: ['layers', 'L1'],
+   explain: L('上面几层只通过 bsp_api.h 这份“请求菜单”和硬件打交道，所以换板子主要改最底层。ServoHub 的 SIL 仿真就是这么做的：它用 SIL_project/bsp_api_virtual.c 换掉了真实硬件。', 'Upper layers only reach the hardware through the bsp_api.h “request menu”, so a new board mostly means a new bottom layer. ServoHub’s SIL simulation does exactly that: SIL_project/bsp_api_virtual.c stands in for the real hardware.')},
+  {title: L('调度器放在哪个门铃里', 'Which doorbell runs the scheduler'), ask: L('AppRun() 为什么不放进电流环门铃？', 'Why isn’t AppRun() in the current-loop doorbell?'),
+   opts: [L('电流环门铃每 50 微秒就要跑完，塞不下', 'The current doorbell must finish within 50 µs; there is no room'), L('电流环门铃不能调用函数', 'The current doorbell can’t call functions'), L('只是作者的习惯', 'Just the author’s habit')], right: 0, show: ['bells', 'pos3'],
+   explain: L('电流环要在 50 微秒内跑完，越短越好。模式的逻辑更复杂、也不需要那么快，放在 100 微秒一次的位置环里刚好。实验台第 6 题也看到了：门铃占的 CPU 越多，别的事就越慢。', 'The current loop must finish within 50 µs, the shorter the better. Mode logic is heavier and doesn’t need that speed, so the 100 µs position loop suits it. Lab question 6 showed the cost: the more CPU the doorbells take, the slower everything else gets.')},
+  {title: L('指令绕了几层', 'How many layers does the instruction cross'), ask: L('“转到 90°”从到达到电机转动，经过了几层？', 'From arrival to the motor turning, how many layers does “go to 90°” pass through?'),
+   opts: [L('只经过通信层和硬件层', 'Only communication and hardware'), L('五层全部经过', 'All five layers'), L('只经过算法层', 'Only the math layer')], right: 1, show: ['trip', 's8'],
+   explain: L('通信（①②）→ 白板（③）→ 模式（④）→ 算法（⑤）→ 控制循环（⑥）→ 硬件（⑦⑧）。每一层只做自己的那一小段，这就是分层的好处。', 'Communication (①②) → whiteboard (③) → mode (④) → math (⑤) → loop wiring (⑥) → hardware (⑦⑧). Each layer does only its own small part; that is what layering buys you.')},
+];
+QS.forEach((q, qi) => {
+  const a = el('article', 'q', `<span class="qn">${L('题', 'Q')} ${qi + 1}</span><h3>${q.title}</h3><p class="ask">${q.ask}</p><div class="opts"></div><div class="ans" hidden></div>`);
+  const opts = a.querySelector('.opts'), ans = a.querySelector('.ans');
+  q.opts.forEach((o, oi) => { const b = el('button', 'opt', o); b.type = 'button'; b.addEventListener('click', () => {
+    opts.querySelectorAll('.opt').forEach((x, xi) => { x.disabled = true; if (xi === q.right) x.classList.add('right'); }); if (oi !== q.right) b.classList.add('wrong');
+    try { const k = `course.${EP}.flow.answered`, got = new Set(JSON.parse(localStorage.getItem(k) || '[]')); got.add(qi); localStorage.setItem(k, JSON.stringify([...got])); } catch {}
+    ans.hidden = false; ans.innerHTML = `<p class="res ${oi === q.right ? 'ok' : 'bad'}">${oi === q.right ? L('答对了。', 'Correct.') : L('不对，正确答案已标出。', 'Not quite; the right answer is marked.')}</p><p>${q.explain}</p>`;
+    const go2 = el('button', 'btn primary', L('在图里看', 'Show me in the diagram')); go2.type = 'button';
+    go2.addEventListener('click', () => { setTab(q.show[0]); if (D[q.show[0]].steps) step = D[q.show[0]].nodes.length - 1; pick(q.show[1]); $('#svg').scrollIntoView({behavior: REDUCED ? 'auto' : 'smooth', block: 'center'}); });
+    ans.append(go2); }); opts.append(b); });
+  $('#qs').append(a);
+});
+setTab(D[tab] ? tab : 'layers');
+if (/^(127\.0\.0\.1|localhost|\[::1\])$/.test(location.hostname)) $('#homeLink').hidden = false;
+</script>
+</body>
+</html>

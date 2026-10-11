@@ -1,0 +1,15 @@
+[
+ {"id":"intro","title":"__EP_TITLE__","zh":"__EP_TITLE__","lines":[
+  ["Episode __EP_N__: __EP_TITLE__.","第 __EP_N__ 集：__EP_TITLE__。"],
+  ["One sentence on the real-world problem this idea solves.","一句话说清它解决的真实问题。"]
+ ]},
+ {"id":"core","title":"The Core Idea","zh":"核心思路","lines":[
+  ["First beat: show the simplest version of the mechanism.","第一拍：先展示机制最简单的样子。"],
+  ["Second beat: break it, so the viewer sees why the design is needed.","第二拍：让它出故障，观众才明白为什么要这样设计。"],
+  ["Third beat: the fix, animated step by step.","第三拍：解决办法，一步一步动画演示。"]
+ ]},
+ {"id":"recap","title":"Recap","zh":"本集要点","lines":[
+  ["Three things to remember.","记住三件事。"],
+  ["Next: try it yourself in the lab, then write it in the dojo.","接下来：先在实验台里亲手试，再去练功房写出来。"]
+ ]}
+]

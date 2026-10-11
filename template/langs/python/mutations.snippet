@@ -1,0 +1,6 @@
+	warmup: {
+		no_lower: [{ "words.py": [["text.lower()", "text"], ["r\"[a-z0-9]+\"", "r\"[A-Za-z0-9]+\""]] }, { 1: "case" }],
+		split_spaces: [{ "words.py": [["dict(Counter(re.findall(r\"[a-z0-9]+\", text.lower())))", "dict(Counter(text.lower().split(\" \")))"]] }, { 1: "punctuation" }],
+		no_tiebreak: [{ "words.py": [["key=lambda kv: (-kv[1], kv[0])", "key=lambda kv: -kv[1]"]] }, { 2: "tie_order" }],
+		no_slice: [{ "words.py": [["[:k]", ""]] }, { 2: "too_many" }],
+	},

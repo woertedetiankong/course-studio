@@ -1,0 +1,5 @@
+	warmup: {
+		no_lock: [{ "warmup.go": [["\t\t\tmu.Lock()\n", ""], ["\t\t\tmu.Unlock()\n", ""], ["\tvar mu sync.Mutex\n", ""]] }, { 1: "race" }],
+		serial: [{ "warmup.go": [["\t\tgo func(c []int) {", "\t\tfunc(c []int) {"]] }, { 1: "not_parallel" }],
+		pool_unbounded: [{ "warmup.go": [["make(chan struct{}, n)", "make(chan struct{}, len(jobs)+1)"]] }, { 2: "pool_too_many" }],
+	},
