@@ -13,7 +13,7 @@ timeline.json ──site/dev/sync_content.py──▶ content/epNN/chapters.json
 ## Defaults: what every episode video is
 
 - **Audience: whatever the course declares** in `COURSE_META.audience` (`beginner` by default, or `practitioner`). See "Audience profiles" below; it changes what the animation is for, how much code is shown, the narration voice and the scene skeleton. Everything else on this page applies to both.
-- **Length: 9–10 minutes** (≈ 540–600 s of narration). That is roughly **16–20 scenes and 110–140 lines** at the Gemini teacher pace (≈ 4.5 s per 12-word line plus gaps). Check `total` after `tts.py`; outside 8.5–10.5 min, add or cut lines rather than stretching animations.
+- **Length: no cap — as long as the mechanism needs to be learned, and no padding.** Typical is 10–15 minutes (≈ 16–20 scenes, 90–120 lines at the unhurried pace). The limit is on *density*, not minutes: one mechanism and one running example per video. When a topic needs a second mechanism, or the script passes ~15 minutes because several parallel cases (protocols, modes, variants) are crammed in, split it into parts (`11a`, `11b`, `11c` …), each with its own running example. See "Hardcore and learnable" below.
 - **Style: 3Blue1Brown** (below). The canvas palette in `head.html` is already dark with bright meaning-coded colours; use it.
 - **Narration: English via Gemini TTS, bilingual subtitles.** Subtitles carry the Chinese, so one video serves both UI languages.
 - **Preview before narrating.** When the user wants to see the look first, or asks for no voice, run `silent_timeline.py` instead of `tts.py` and render; switch to `tts.py` later, everything else stays the same.
@@ -24,13 +24,29 @@ timeline.json ──site/dev/sync_content.py──▶ content/epNN/chapters.json
 |---|---|---|
 | Who | weak foundation; high-school maths, nothing about the field | engineers in the field who want to master *this* codebase |
 | Animation is for | building intuition for the concept | showing what reading the code can't: timing (who interrupts whom, in what order), data flow across files, state machines side by side, model ↔ generated code, real waveforms before/after a change |
-| Basics | explained from an everyday analogy, each term defined | one line at most; no analogies except for architecture |
+| Basics | explained from an everyday analogy, each term defined | one line at most; an analogy only for the hard part (timing, concurrency), 1–2 per episode |
 | Code | last, simplified, ~10 % of the video | the main subject, 40–50 %: real paths, function and variable names, cut lines marked `…` |
 | Scene arc | picture → name → symbol → formula → numbers | problem (why it exists) → mechanism animation → source walkthrough → evidence (a real run, real numbers) → pitfall / design trade-off |
 | "Understandable" means | "now I get the idea" | "so *that's* what this code does" — clear, not shallow |
 | Voice (`tts.py`) | warm, patient teacher, unhurried | clear, confident senior engineer talking to a peer, brisk but unhurried |
 
 Real evidence beats illustration for practitioners: when the course has a runnable target (a simulator, the real tests), plot data from actual runs and quote measured numbers — and sample fast enough not to miss the transient you are describing.
+
+## Hardcore and learnable (the default teaching pattern)
+
+Depth is never cut; it is made followable. Learned on robot-course ep11: a 10-minute engineer video covering four encoder protocols, their checks and six pitfalls was correct but "too hard"; the remake (ep11a: one protocol, one real frame followed end to end, 12 minutes) was understood on first viewing. Apply this to every audience; for `practitioner` it is how the 40–50 % code share gets absorbed.
+
+- **One running example, carried end to end.** Pick one concrete input from a real run (a frame `02 00 3C 99 00 A7`, a CAN write of 262144, a step of 0.1 N·m) and follow it through every stage until it becomes the output (178.71°). The same numbers appear in every scene. Never switch examples mid-episode except for a "what if it breaks" contrast, and say so.
+- **A stop strip.** Number the stages in an early "the journey" scene and keep a thin strip under the chapter title showing the current stop (ep11a `stopBar`, ep36 `routeBar`). The viewer always knows where they are.
+- **Each step in three beats, same numbers:** (1) do it by hand on screen — the arithmetic written out (`02 ⊕ 3C = 3E`, `60 + 39168 = 39228`); (2) the real source, at most 3 lines lit at a time, the current value written beside each line (`codeBox` `mark`); (3) the real run printing the same value. Code never appears before the picture it implements.
+- **Code on screen is the real code, located and in call order** (robot-course ep11a learner: "代码不要简写，逻辑要连贯，看完知道代码在哪"). (1) Verbatim: the lines exactly as in the file — same identifiers (`enc_data->uart_handle`, not `uart`), same macros, same comments; never substitute values into the code, write them beside it (`mark`). Cut excerpts from the repo by line range at build time (like `lab_data.py`) so they can't drift. (2) Located: real line numbers in a gutter and `path/file.c · L615–628 · Function()` as the box title. (3) Continuous: walk the code in the order the CPU runs it — ISR → caller → function-pointer target → back to the caller → next call — with a call-stack breadcrumb on screen (`board.c:229 EncoderDataRead() › drv_encoder.c:202 .read › :615 TAMAGAWA_Encoder_Data_Read()`) that grows on each call and shrinks on return. Draw source in a font without ligatures (Menlo/Consolas): JetBrains Mono turns `->` and `!=` into → and ≠, which no longer matches the file. Never jump to a later function without showing the call that gets there; when lines inside a function are skipped, show an explicit `… L640–646: what they do` row instead of silently dropping them.
+- **≤ 3 new names per scene.** A new identifier gets one plain-language line the first time ("data_raw — the driver's own copy"). If a scene needs more, split it.
+- **Analogies only where it is genuinely hard** — timing and concurrency mostly (ep11a: DMA = posting a letter with a reply envelope, read at the next visit). One or two per episode, never for things the audience already knows.
+- **Guess first.** 2–4 per episode: pose the question on a card, hold (`"pause"` as the 4th element of the line in `script.json` adds 2 s of silence in `tts.py` and `silent_timeline.py`), then answer with the real run. Clear the card fully before the answer's picture fades in.
+- **"So far" every 5–6 scenes** (three cards), a final recap, then a "your turn" that hands the viewer a *new* real input to work by hand, pauses, and shows the answer and the real run.
+- **Unhurried timing.** Lines ≤ 20 words; gaps of 0.6 s; subtitles stay long enough to read both languages (the template `silent_timeline.py` timing). One idea per line.
+- **When to split — decide after reading the episode's code, never from the title alone** (robot-course ep11 looked like one episode until `drv_encoder.c` showed six types, different check policies and five measured pitfalls). Split when (1) the running example needs more than ~9 stops, (2) there are parallel variants (protocols, modes, identifications) — they get their own "differences" part, (3) real runs turn up 3 or more pitfalls — they get their own "what goes wrong" part. Show the user the stop list and the split before producing anything. Keep episode numbers stable; parts are `NNa/NNb/NNc`. A course plan may carry a pre-reading estimate (robot-course `plan.py` `PARTS`), marked as an estimate.
+- **Splitting a dense topic:** part A = the main path with one example, done thoroughly; part B = the variants, each shown only as its *difference* from part A, stop by stop; part C = what goes wrong (checks, error paths, pitfalls from real runs), each pitfall guess-first. Part B and C reuse part A's stop strip.
 
 ### Scene skeleton for `practitioner` (adapt, don't pad)
 | # | Scene | ~s |
@@ -46,7 +62,7 @@ Real evidence beats illustration for practitioners: when the course has a runnab
 | 16 | Recap: three things to remember | 25 |
 | 17 | Your turn: a change to make and predict | 20 |
 
-The beginner sections below ("Narration", the 9–10 minute skeleton) still apply to `beginner` courses as written; for `practitioner` keep their mechanics (≤ 20 words a line, ask-pause-answer, recap) but drop the analogy-first and define-everything rules.
+The beginner sections below ("Narration", the beginner skeleton) still apply to `beginner` courses as written; for `practitioner` keep their mechanics (≤ 20 words a line, ask-pause-answer, recap) but drop the analogy-first and define-everything rules.
 
 ## 3Blue1Brown style, concretely
 
@@ -57,7 +73,7 @@ Visual
 - **Everything moves continuously.** Values sweep rather than jump (a dot sliding along a graph line while the arm moves, a counter ticking with a gear). Use `eio`/`eo` easing; avoid hard cuts inside a scene.
 - **Show, then name, then formalise.** Picture/analogy → plain-language name → symbol → formula → concrete numbers plugged in.
 - **Real numbers on screen.** After the general formula, always plug in one worked example (N = 10, Kp = 20 → 0.2) and show the arithmetic.
-- **Code last, simplified, mapped back.** When the episode reads real source, show a cut-down excerpt in `codeBox`, highlight each line as the narration names it, and colour it with the same concept colours as the formula.
+- **Code last, verbatim, mapped back.** When the episode reads real source, show the real lines (with file and line numbers, see "Code on screen is the real code" above) in `codeBox`, highlight each line as the narration names it, and colour it with the same concept colours as the formula. Shorten by choosing fewer lines, never by rewriting them.
 
 Narration (script.json)
 - **Talk like a patient teacher sitting beside the viewer.** "you", "we", short sentences, one idea per line. ≤ 20 words per line so it fits two subtitle rows.
@@ -68,7 +84,7 @@ Narration (script.json)
 - **Recap mid-way and at the end.** One "so far:" scene around the middle (three bullet chips), one recap scene at the end, then 1–3 think-about questions.
 - No jargon walls, no "obviously/simply/just", no unexplained acronyms.
 
-### Scene skeleton for 9–10 minutes (adapt, don't pad)
+### Scene skeleton for `beginner` (adapt, don't pad)
 | # | Scene | ~s |
 |---|---|---|
 | 0 | Intro: title + one-sentence promise of what you'll understand | 20 |

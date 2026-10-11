@@ -16,7 +16,8 @@ import json, subprocess, wave, hashlib, os, re, base64, time, urllib.request, ur
 from concurrent.futures import ThreadPoolExecutor
 S = json.load(open('script.json', encoding='utf-8'))
 RATE = 48000
-LEAD, GAP, TAIL = 0.7, 0.45, 1.1
+LEAD, GAP, TAIL = 0.9, 0.6, 1.6
+PAUSE = 2.0  # extra hold after a line marked 'pause' (4th element): time to guess before the answer
 GLOBAL_ENV = os.path.expanduser('~/.config/course-studio/.env')  # one key for every course on this machine
 def find_env():  # the course root's .env (gitignored), searched upward from this folder
     d = os.path.abspath('.')
@@ -26,7 +27,10 @@ def find_env():  # the course root's .env (gitignored), searched upward from thi
 read_env = lambda p: dict(l.strip().split('=', 1) for l in open(p) if '=' in l and not l.startswith('#')) if p and os.path.exists(p) else {}
 ENV = {**read_env(GLOBAL_ENV), **read_env(find_env())}  # a course .env overrides the global one
 cfg = lambda k, default=None: os.environ.get(k) or ENV.get(k) or default
-KEY = cfg('GEMINI_API_KEY') or cfg('GOOGLE_API_KEY')
+# GEMINI_API_KEY may list several keys separated by commas; quota is per Google Cloud project, so keys from
+# different projects add up. When one key's daily quota is used up, the next key takes over.
+KEYS = [k.strip() for k in (cfg('GEMINI_API_KEY') or cfg('GOOGLE_API_KEY') or '').split(',') if k.strip()]
+KEY = KEYS[0] if KEYS else None
 if not KEY: raise SystemExit(f'GEMINI_API_KEY not found: put it in {GLOBAL_ENV}, the course root .env, or the environment')
 MODEL = cfg('GEMINI_TTS_MODEL', 'gemini-3.8-flash-tts')
 VOICE = cfg('GEMINI_VOICE', 'Sulafat')  # warm; alternatives: Achird (friendly), Kore (firm), Charon (informative)
@@ -53,15 +57,25 @@ os.makedirs('audio', exist_ok=True)
 
 # Style goes in a director's-notes header; a plain 'Say it like…:' prefix gets read aloud by this model,
 # and systemInstruction is rejected ("Developer instruction is not enabled").
+KEY_LOCK = __import__('threading').Lock(); KEYS_BY = {}
 def call(model, body):
     url = f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent'
-    for attempt in range(6):
+    ks = KEYS_BY.setdefault(model, list(KEYS))  # quota is per model too: the check model keeps its own list
+    for attempt in range(6 + 2 * len(KEYS)):
         try:
-            req = urllib.request.Request(url, body, {'x-goog-api-key': KEY, 'Content-Type': 'application/json'})
+            if not ks: raise SystemExit(f'Gemini {model}: no key left')
+            key_used = ks[0]
+            req = urllib.request.Request(url, body, {'x-goog-api-key': key_used, 'Content-Type': 'application/json'})
             return json.load(urllib.request.urlopen(req, timeout=120))
         except urllib.error.HTTPError as e:
+            msg = e.read().decode()
+            if e.code == 429 and 'PerDay' in msg:  # this key's project is out for today: move to the next key
+                with KEY_LOCK:
+                    if ks and ks[0] == key_used: ks.pop(0); print(f'  {model}: daily quota used up on a key; {len(ks)} key(s) left')
+                if not ks: raise SystemExit(f'Gemini {model}: daily quota used up on every key')
+                continue
             if e.code in (429, 500, 502, 503, 504) and attempt < 5: time.sleep(2 ** attempt * 3); continue
-            raise SystemExit(f'Gemini {model} {e.code}: {e.read().decode()[:400]}')
+            raise SystemExit(f'Gemini {model} {e.code}: {msg[:400]}')
         except (urllib.error.URLError, OSError):  # dropped connection / SSL EOF
             if attempt < 5: time.sleep(2 ** attempt * 3); continue
             raise
@@ -118,12 +132,13 @@ def speak(text, path):
         if r is not False: return
     print(f'  WARNING: "{text[:60]}" still too long or misread — listen to {path}, or reword the line')
 
-said = lambda l: l[2] if len(l) > 2 else l[0]
+said = lambda l: l[2] if len(l) > 2 and l[2] else l[0]
+paused = lambda l: len(l) > 3 and l[3] == 'pause'
 jobs = []
 for si, sc in enumerate(S):
     for li, line in enumerate(sc['lines']):
         h = hashlib.sha1(f'{MODEL}|{VOICE}|{STYLE}|{said(line)}'.encode()).hexdigest()[:8]
-        jobs.append((si, li, said(line), f'audio/{si}_{li}_{h}.src.wav'))
+        jobs.append((si, li, said(line), f'audio/{h}.src.wav'))  # keyed by text only: moving a line keeps its clip
 todo = [j for j in jobs if not os.path.exists(j[3] + '.ok')]  # new, or cached but never checked
 print(f'{len(jobs)} lines, {len(todo)} to synthesize ({MODEL}, voice {VOICE})')
 with ThreadPoolExecutor(4) as ex:
@@ -141,8 +156,9 @@ for si, sc in enumerate(S):
             'silenceremove=start_periods=1:start_threshold=-50dB,areverse,silenceremove=start_periods=1:start_threshold=-50dB,areverse',
             '-ar', str(RATE), '-ac', '1', '-sample_fmt', 's16', w], check=True)
         with wave.open(w) as f: data = f.readframes(f.getnframes()); d = f.getnframes() / RATE
-        beats.append({'text': line[0], 'zh': line[1], 'start': round(t - start, 3), 'dur': round(d, 3)})
-        pcm += data; t += d
+        hold = PAUSE if paused(line) else 0.0
+        beats.append({'text': line[0], 'zh': line[1], 'start': round(t - start, 3), 'dur': round(d + hold, 3)})
+        pcm += data + sil(hold); t += d + hold
         g = GAP if li < len(sc['lines']) - 1 else TAIL
         pcm += sil(g); t += g
     out.append({'id': sc['id'], 'title': sc['title'], 'zh': sc['zh'], 'start': round(start, 3), 'dur': round(t - start, 3), 'beats': beats})
