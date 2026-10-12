@@ -86,7 +86,7 @@ def main():
     if not os.path.exists(os.path.join(root, ".env.example")):
         open(os.path.join(root, ".env.example"), "w").write("# GEMINI_API_KEY is read from ~/.config/course-studio/.env; set it here only to override for this course\n# GEMINI_API_KEY=\n# GEMINI_VOICE=Sulafat\n")
     if not os.path.exists(os.path.join(root, ".gitignore")):
-        open(os.path.join(root, ".gitignore"), "w").write(".env\n.DS_Store\nnode_modules/\nepisodes/*/audio/\nepisodes/*/*.wav\nepisodes/*/*.mp3\nepisodes/*/video.mp4\n")
+        open(os.path.join(root, ".gitignore"), "w").write(".env\n.DS_Store\nnode_modules/\nepisodes/*/audio/\nepisodes/*/*.wav\nepisodes/*/*.mp3\nepisodes/*/video.mp4\nsite/content/*/video.mp4\n")
     if a.lang == "none":  # episode 1 uses the flowchart page in place of the dojo and assignment
         cj = os.path.join(site, "web", "js", "course.js")
         s = open(cj, encoding="utf-8").read()
