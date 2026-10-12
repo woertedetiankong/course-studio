@@ -1,10 +1,11 @@
 // 课程数据：课程首页（hub.js）和练功房（app.js）都读这里。加一集 = 在 EPISODES 里加一项。
 //
 // status: ready = 材料齐了；partial = 只有部分材料（比如只有视频）；planned = 还没做，只在课程地图里占位
+// part:   拆成几篇的一集（ep11a…ep11d）：n 相同，part 写 'a' 'b'…，显示成“第 11a 集”；map 写 page: 第一篇的 id，共用地图进度
 // steps:  按顺序列出这一集有的步骤，可选 video / reading / lab / flow / map / dojo / assignment
 //   video       需要 content/<id>/video.mp4 和 chapters.json（dev/sync_content.py 生成）
 //   reading     {title, url?, urlLabel?, urlNote?, notes?, notesLabel?, links?: [{label, url, note?}], time?, read: [...], ask: [...]}
-//   lab         {questions: 预测题个数, desc, time?} → content/<id>/lab.html；实验台把答过的题号存进 localStorage 'course.<id>.lab.answered'
+//   lab         {questions: 预测题个数, desc, time?, page?} → content/<page 或 id>/lab.html（page：几集共用一页时写那一集的 id）；实验台把答过的题号存进 localStorage 'course.<id>.lab.answered'
 //   flow        {questions: 想一想题数, desc, time?} → content/<id>/flow.html；流程图页把答过的题号存进 'course.<id>.flow.answered'
 //               （给看不懂代码的学员：用可点击的流程图讲结构，可以代替练功房）
 //   map         {questions: 本集地图题数, desc, time?} → atlas.html#<id>（项目地图，整门课一张，见 references/atlas.md）；答对的题号存进 'course.<id>.map.answered'

@@ -16,7 +16,7 @@ EPISODES = os.path.join(os.path.dirname(ROOT), "episodes")
 only = set(sys.argv[1:])
 
 for name in sorted(os.listdir(EPISODES)):
-    m = re.match(r"^(ep\d+)(?:-|$)", name)
+    m = re.match(r"^(ep\d+[a-z]?)(?:-|$)", name)
     src = os.path.join(EPISODES, name)
     if not m or not os.path.isdir(src) or (only and m.group(1) not in only):
         continue

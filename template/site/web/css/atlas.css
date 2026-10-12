@@ -233,3 +233,6 @@ pre{margin:0; font:12px/1.6 var(--f-code); background:var(--paper); border-radiu
 @media (max-width:1100px){ .main{grid-template-columns:minmax(0,1fr)} .side{position:static; max-height:none} }
 @media (max-width:700px){ .side-top{align-items:flex-start} .fcards{grid-template-columns:minmax(0,1fr)} .mast{grid-template-columns:minmax(0,1fr)} .mast h1{font-size:34px} .swipe{display:block} .views button{padding:8px 10px 9px; font-size:14px} .views button small{display:none} }
 @media (prefers-reduced-motion: reduce){ .lit .beacon,.pulse{animation:none} }
+
+/* code is shown verbatim: no ligatures (JetBrains Mono would draw -> as an arrow, != as ≠) */
+code,pre,.lr,[class*="code"]{font-variant-ligatures:none; font-feature-settings:"liga" 0, "calt" 0}

@@ -19,6 +19,8 @@ Reference instance: `~/Documents/ChatGPT/robot-course/site/web/js/atlas.data.js`
 
 Episode titles come from `course.js`; deep link `atlas.html#epNN`. **Learners only see released episodes** (status other than `planned` in `course.js`): no spoilers of later routes and questions, and a link to an unreleased episode falls back to the latest released one. Block details still say which later episode reads a block ("第 50 集 · 读懂"), which sets expectations without giving content away. Authors preview everything with `atlas.html?all#epNN`. Zoom is gated the same way: a block's file view (functions, who calls whom) opens once the block is at least seen; its code view (segments, shared-state reads/writes) only from the episode that reads it closely (`fns[].ep`, default the block's first `r` episode). Progress: correct answers go to `course.<epId>.map.answered` (the hub's `map` step counts them against `map.questions`).
 
+**Episodes split into parts** (`ep11a`…`ep11d` in `course.js`, same `n`, `part: 'a'`…): they share one map section `eps[n]`; give it a title with `eps[n].t` (the picker shows it instead of the first part's title), give every part `map: {page: '<first part id>', …}` so they share one progress count, and deep links `atlas.html#ep11c` resolve to episode 11. A lab page shared by parts uses `lab: {page: '<id of the part that holds lab.html>', …}`.
+
 ## The five views — each answers one question
 | View | Question | Data | Robot-course example | Distributed-systems example |
 |---|---|---|---|---|

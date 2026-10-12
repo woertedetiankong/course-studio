@@ -18,7 +18,9 @@ const N = A.nodes, BY = Object.fromEntries(N.map(n => [n.id, n]));
 const CLOCKS = A.clocks || [], FIELDS = A.fields || [], ROUTES = A.routes || {}, ZOOM = A.zoom || {}, EPS = A.eps || {};
 const BOARD = N.find(n => n.board);
 const kv = k => `var(--L-${k})`;
-const epInfo = n => (window.EPISODES || []).find(e => e.n === n) || {id: 'ep' + String(n).padStart(2, '0'), n, title: ''};
+// an episode split into parts (ep11a…ep11d) shares one map section: its id is the first part's, its title eps[n].t if given
+const epInfo = n => { const es = (window.EPISODES || []).filter(e => e.n === n), t = es.length > 1 && window.ATLAS.eps?.[n]?.t;
+  return es.length ? (t ? {...es[0], title: t} : es[0]) : {id: 'ep' + String(n).padStart(2, '0'), n, title: ''}; };
 const VIEWS = [
  {id: 'where', t: L('在哪', 'Where'), s: M.viewSub?.where || L('文件和分层', 'files and layers')},
  {id: 'when', t: L('什么时候跑', 'When'), s: M.viewSub?.when || L('谁把代码叫起来', 'what wakes the code')},
@@ -41,7 +43,7 @@ const released = n => { const e = (window.EPISODES || []).find(x => x.n === n); 
 const preview = new URLSearchParams(location.search).has('all');
 const epKeys = Object.keys(EPS).map(Number).filter(n => preview || released(n)).sort((a, b) => a - b);
 if (!epKeys.length) epKeys.push(Math.min(...Object.keys(EPS).map(Number)));
-const hashEp = () => { const m = /^#ep0*(\d+)$/.exec(location.hash); return m && epKeys.includes(+m[1]) ? +m[1] : null; };
+const hashEp = () => { const m = /^#ep0*(\d+)[a-z]?$/.exec(location.hash); return m && epKeys.includes(+m[1]) ? +m[1] : null; };
 const S = {ep: hashEp() ?? store.get('atlas.ep', epKeys[epKeys.length - 1]), view: store.get('atlas.view', 'where'), sel: null,
   clock: (CLOCKS.find(c => c.d) || CLOCKS[0] || {}).id, field: 0, route: null, step: 0, q: 0, answers: store.get('atlas.answers', {}), justLit: true,
   zoom: null, guess: store.get('atlas.guess', true), gmsg: null, gtries: 0, gstats: {}, picks: []};

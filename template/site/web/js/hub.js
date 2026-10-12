@@ -26,9 +26,9 @@ function setDone(ep, step, v){ progress[ep] = progress[ep] || {}; progress[ep][s
 let dojoLevels = {};   // dojo id -> level count, from the runner
 function autoState(ep){
   const s = {};
-  if (ep.lab){ const n = load(`course.${ep.id}.lab.answered`, []).length, total = ep.lab.questions || 0; s.lab = {n, total, done: total > 0 && n >= total}; }
+  if (ep.lab){ const n = load(`course.${ep.lab.page || ep.id}.lab.answered`, []).length, total = ep.lab.questions || 0; s.lab = {n, total, done: total > 0 && n >= total}; }
   if (ep.flow){ const n = load(`course.${ep.id}.flow.answered`, []).length, total = ep.flow.questions || 0; s.flow = {n, total, done: total > 0 && n >= total}; }
-  if (ep.map){ const n = load(`course.${ep.id}.map.answered`, []).length, total = ep.map.questions || 0; s.map = {n, total, done: total > 0 && n >= total}; }
+  if (ep.map){ const n = load(`course.${ep.map.page || ep.id}.map.answered`, []).length, total = ep.map.questions || 0; s.map = {n, total, done: total > 0 && n >= total}; }
   if (ep.dojo){ const n = load(`dojo.${ep.dojo}.passed`, []).length, total = dojoLevels[ep.dojo] || 0; s.dojo = {n, total, done: total > 0 && n >= total}; }
   return s;
 }
@@ -48,7 +48,7 @@ function render(){
   const n = steps.filter(k => stepDone(ep, k, auto)).length, total = steps.length;
   const tag = ep.assignment && ep.assignment.short ? L(' · 对应 ', ' · for ') + esc(ep.assignment.short) : '';
   $('#epHead').innerHTML = `<div>
-      <p class="eyebrow">${L(`第 ${ep.n} 集`, `Episode ${ep.n}`)} · ${esc(ep.group)}${tag}</p>
+      <p class="eyebrow">${L(`第 ${ep.n}${ep.part || ''} 集`, `Episode ${ep.n}${ep.part || ''}`)} · ${esc(ep.group)}${tag}</p>
       <h1>${esc(ep.title)}</h1>
       <p class="desc">${esc(ep.desc || '')}</p></div>
     <div class="prog"><b>${n}<small> / ${total} ${L('步', 'steps')}</small></b><span class="track"><i style="width:${total ? n / total * 100 : 0}%"></i></span><span>${n === total ? L('这一集学完了', 'Episode complete') : L('按顺序一步一步来', 'Take the steps in order')}</span></div>`;
@@ -99,7 +99,7 @@ function stepCard(ep, k, no, auto){
       ${head(L('玩实验台', 'Play with the lab page'), ep.lab.time)}
       <p class="what">${esc(ep.lab.desc || '')}</p>
       <span class="status ${a.done ? 'ok' : a.n ? 'warn' : ''}">${L('预测题', 'Predictions')} ${a.n} / ${a.total}</span>
-      <div class="acts"><a class="go main" href="content/${ep.id}/lab.html">${L('打开实验台', 'Open the lab page')}</a>${check(ep, 'lab', L('玩过了', 'Done'))}</div></article>`;
+      <div class="acts"><a class="go main" href="content/${ep.lab.page || ep.id}/lab.html">${L('打开实验台', 'Open the lab page')}</a>${check(ep, 'lab', L('玩过了', 'Done'))}</div></article>`;
   }
   if (k === 'flow'){
     const a = auto.flow;
@@ -175,7 +175,7 @@ function renderMap(){
     const tag = !open(e) ? L('制作中', 'In the works') : n === steps.length ? L('已学完', 'Complete') : n ? L(`进行中 ${n}/${steps.length}`, `In progress ${n}/${steps.length}`) : e.status === 'partial' ? L('有视频', 'Video only') : L('可以开始', 'Ready to start');
     const short = e.assignment && e.assignment.short ? ' · ' + esc(e.assignment.short) : '';
     const cls = `ep ${open(e) ? 'ready' : 'planned'} ${e === current ? 'cur' : ''}`;
-    const inner = `<span class="n">${L(`第 ${e.n} 集`, `Episode ${e.n}`)} · <span class="group">${esc(e.group)}</span></span><b>${esc(e.title)}</b><span class="tag">${tag}${short}</span>`;
+    const inner = `<span class="n">${L(`第 ${e.n}${e.part || ''} 集`, `Episode ${e.n}${e.part || ''}`)} · <span class="group">${esc(e.group)}</span></span><b>${esc(e.title)}</b><span class="tag">${tag}${short}</span>`;
     return open(e) ? `<a class="${cls}" href="#${e.id}">${inner}</a>` : `<div class="${cls}">${inner}</div>`;
   }).join('');
 }
