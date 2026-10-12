@@ -3,10 +3,11 @@
 //   node atlas_check.mjs --data site/web/js/atlas.data.js --repo ../servohub
 // Checks: every L() has English; node paths exist; every name written like foo() exists in the repo;
 // route code lines appear, in order, in the step's file ("..." lines are cuts); zoom src equals the file lines;
-// zoom call tags name something on that line; segments sit inside the function; ids referenced anywhere exist.
+// zoom call tags name something on that line; segments sit inside the function; ids referenced anywhere exist;
+// what an episode shows sits on blocks lit by then, also counting released episodes only when course.js sits next to the data.
 // Exit code 1 when anything fails.
 import {readFileSync, existsSync, statSync, readdirSync} from 'node:fs';
-import {join, extname} from 'node:path';
+import {join, extname, dirname} from 'node:path';
 import vm from 'node:vm';
 
 const arg = k => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : null; };
@@ -106,16 +107,38 @@ for (const [ep, E] of Object.entries(A.eps || {})){
   });
   if (!A.nodes.some(n => n.eps.some(([e]) => e === +ep))) warn.push(`ep ${ep}: no node lights up in this episode`);
 }
-// what an episode shows must sit on blocks that episode has already lit (default episode 1)
-const litBy = (id, ep) => { const n = A.nodes.find(x => x.id === id); return n && n.eps.some(([e]) => e <= ep); };
+// what an episode shows must sit on blocks that episode has already lit (default episode 1).
+// A call's or field's episode may be a list of every episode that teaches it; learners see it from the first released one.
+// Learners see released episodes only (course.js status other than 'planned'), so when course.js sits next to the data file,
+// also check that the first released episode an item shows in has its blocks lit by released episodes.
+let released = null;
+const coursePath = join(dirname(dataPath), 'course.js');
+if (existsSync(coursePath)){
+  const c = {window: {}}; vm.runInNewContext(readFileSync(coursePath, 'utf8'), c, {filename: coursePath});
+  released = new Set((c.window.EPISODES || []).filter(e => e.status !== 'planned').map(e => e.n));
+}
+const epList = e => [].concat(e ?? 1);
+const litBy = (id, ep, onlyReleased) => { const n = A.nodes.find(x => x.id === id); return n && n.eps.some(([e]) => e <= ep && (!onlyReleased || released.has(e))); };
+const checkLit = (where, id, eps, what) => {
+  if (!ids.has(id)) return;
+  for (const e of epList(eps)){
+    if (!(e > 0)) { err(where, `bad episode ${e}`); continue; }
+    if (!litBy(id, e)) err(where, `${id} is ${what} from episode ${e} but not lit until later: change the episode or light the block`);
+  }
+  const first = released && epList(eps).filter(e => released.has(e)).sort((a, b) => a - b)[0];
+  if (first != null && !litBy(id, first, true))
+    err(where, `${id} shows to learners from episode ${first} (the first released episode it lists), but no released episode lights it by then: light it in episode ${first} or list another episode`);
+};
 for (const c of A.clocks || []){
-  for (const [id, , ep] of c.calls) if (ids.has(id) && !litBy(id, ep ?? 1)) err(`clock ${c.id}`, `${id} is listed from episode ${ep ?? 1} but not lit until later: add ep to the call or light the block`);
+  for (const [id, , ep] of c.calls) checkLit(`clock ${c.id}`, id, ep, 'listed');
   if (c.more && !(c.more[0] > 0)) err(`clock ${c.id}`, 'more must be [episode, text]');
 }
-for (const f of A.fields || []) for (const id of [...f.w, ...f.r]) if (ids.has(id) && !litBy(id, f.ep ?? 1)) err(`field ${f.f}`, `${id} is shown from episode ${f.ep ?? 1} but not lit until later`);
-for (const [rid, R] of Object.entries(A.routes || {})) for (const st of R.steps) for (const id of st.n) if (ids.has(id) && !litBy(id, R.ep)) err(`route ${rid}`, `${id} is on the route of episode ${R.ep} but not lit until later`);
+for (const f of A.fields || []) for (const id of [...f.w, ...f.r]) checkLit(`field ${f.f}`, id, f.ep, 'shown');
+for (const [rid, R] of Object.entries(A.routes || {})) for (const st of R.steps) for (const id of st.n) checkLit(`route ${rid}`, id, R.ep, 'on the route');
+for (const [ep, E] of Object.entries(A.eps || {})) (E.qs || []).forEach((q, i) => { for (const id of [].concat(q.a)) checkLit(`ep ${ep} question ${i + 1}`, id, +ep, 'the answer'); });
 for (const zh of missingEn) err('English', `no English for: ${String(zh).slice(0, 60)}`);
 
 for (const w of warn) console.log('warn  ' + w);
 if (errors.length){ for (const e of errors) console.log('FAIL  ' + e); console.log(`\n${errors.length} problem(s).`); process.exit(1); }
-console.log(`atlas ok: ${A.nodes.length} nodes, ${(A.clocks || []).length} clocks, ${(A.fields || []).length} fields, ${Object.keys(A.routes || {}).length} routes, ${Object.keys(A.eps || {}).length} episodes — every name, path and code line found in ${repo}`);
+console.log(`atlas ok: ${A.nodes.length} nodes, ${(A.clocks || []).length} clocks, ${(A.fields || []).length} fields, ${Object.keys(A.routes || {}).length} routes, ${Object.keys(A.eps || {}).length} episodes — every name, path and code line found in ${repo}` +
+  (released ? `; lighting checked for released episodes ${[...released].sort((a, b) => a - b).join(', ')}` : ''));

@@ -50,15 +50,19 @@ const S = {ep: hashEp() ?? store.get('atlas.ep', epKeys[epKeys.length - 1]), vie
 if (!epKeys.includes(S.ep)) S.ep = epKeys[epKeys.length - 1];
 if (!VIEWS.some(v => v.id === S.view)) S.view = 'where';
 
-const level = (n, ep) => n.eps.reduce((m, [e, l]) => e <= ep ? Math.max(m, l === 's' ? 1 : 2) : m, 0);
+// what the learner has been taught by episode ep: only released episodes count (episodes ship out of order, so a planned
+// episode with a smaller number has taught nothing yet); ?all counts every episode
+const counts = e => preview || released(e);
+const level = (n, ep) => n.eps.reduce((m, [e, l]) => e <= ep && counts(e) ? Math.max(m, l === 's' ? 1 : 2) : m, 0);
 const isNew = (n, ep) => n.eps.some(([e]) => e === ep);
 // zoom follows the course too: the file view opens once a block has been seen, the code view only from the episode that reads it closely
-const firstRead = n => (n.eps.find(([, l]) => l !== 's') || [])[0];
+const firstRead = n => (n.eps.find(([, l]) => l !== 's') || [])[0];        // for “comes with episode N” hints, released or not
 const canZoom = id => !!ZOOM[id] && level(BY[id], S.ep) >= 1;
-const codeEp = (F, n) => F.ep ?? firstRead(n);
-const canCode = (F, n) => !!F.src && (preview || S.ep >= (codeEp(F, n) ?? Infinity));
-// calls, clock notes and board fields can carry an episode: a beginner sees only what the episodes so far have taught
-const shown = e => (e ?? 1) <= S.ep;
+const codeEp = (F, n) => F.ep ?? (n.eps.find(([e, l]) => l !== 's' && counts(e)) || [])[0] ?? firstRead(n);
+const canCode = (F, n) => { const e = codeEp(F, n); return !!F.src && (preview || (e != null && S.ep >= e && counts(e))); };
+// calls, clock notes and board fields can carry an episode, or a list of the episodes that teach them:
+// a learner sees an item from the first released one, so only what the episodes so far have taught
+const shown = e => [].concat(e ?? 1).some(x => x <= S.ep && counts(x));
 const callsOf = c => c.calls.filter(x => shown(x[2]));
 const noteOf = c => c.note + (c.more && shown(c.more[0]) ? ' ' + c.more[1] : '');
 const fieldsNow = () => FIELDS.filter(f => shown(f.ep));
@@ -209,7 +213,7 @@ function drawOverlay(){
 /* ---------- side sheet ---------- */
 const lvName = l => l === 's' ? LV[1] : LV[2];
 function epChips(n){
-  return `<div class="epl">${n.eps.map(([e, l]) => `<span class="${e === S.ep ? 'now' : e < S.ep ? 'done' : ''}">${L(`第 ${e} 集 · ${lvName(l)}`, `Ep ${e} · ${lvName(l)}`)}</span>`).join('')}</div>`;
+  return `<div class="epl">${n.eps.map(([e, l]) => `<span class="${e === S.ep ? 'now' : e < S.ep && counts(e) ? 'done' : ''}">${L(`第 ${e} 集 · ${lvName(l)}`, `Ep ${e} · ${lvName(l)}`)}</span>`).join('')}</div>`;
 }
 function nodeDetail(n){
   const lv = level(n, S.ep), clocks = CLOCKS.filter(c => callsOf(c).some(([id]) => id === n.id));

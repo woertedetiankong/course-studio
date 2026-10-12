@@ -40,6 +40,7 @@ The map shows only what the episodes so far have taught, so an early learner nev
 - **clock calls** carry an episode: episode 1 of robot-course lists only the entry points the video names (`CURRENT_LOOP_IRQ_TASK → CurrentLoopCtrl`, `AppRun` in the position loop…), episode 13 opens the full call order (18 calls in the position loop). A clock's `note` is the plain sentence for everyone; `more` adds detail from a later episode.
 - **board fields** carry an episode: episode 1 shows only what its video says (current read in, voltage out); field-level handoffs (`idq_tar_A[1]` between two loops) wait for the episode that reads them.
 - **consistency**: anything an episode shows (a clock call, a field's writers and readers, a route step) must sit on blocks lit by that episode. `atlas_check.mjs` fails otherwise — fix it by lighting the block in that episode or by moving the item to a later one. When unsure what an episode covers, compare against its narration (`script.json`), not against the plan alone.
+- **released episodes only**: episodes often ship out of order (robot-course released 1, 2, 11, 36 first), so everything above counts only released episodes (`course.js` status other than `planned`): a block lit by a planned episode 6 stays hatched at episode 11, its calls and fields stay hidden, and its code view stays locked. When a released later episode also teaches an item tagged with an earlier planned one, give the item every episode that teaches it, e.g. `['w2', 'PosSpeedCtlLoopTask()', [6, 11]]` or `ep: [6, 36]`: it shows from the first released one. `atlas_check.mjs` reads `course.js` from the data file's folder and fails an item whose first released episode doesn't have its blocks lit by released episodes.
 
 ## Data format (`window.ATLAS`)
 All learner-facing text is `L('中文', 'English')` — the checker fails on a missing English half.
@@ -51,8 +52,8 @@ nodes: [{id, k /* layer key */, x, y, w, h, t, f /* file name on the block */, p
          plain, fns: ['name()'…], eps, group?, black? /* external code: f = L('外部代码 · 黑盒', 'external · black box') */,
          board?, sub?, rows? /* only for the board node */}],
 clocks: [{id, t, rate, per?, d? /* animated lanes only */, color? /* used by zoom file maps */, note, more?: [episode, 'detail added from then on'],
-          calls: [[nodeId, 'what is called', episode? /* shown from this episode, default 1 */]]}],
-fields: [{f: 'struct.path', ep? /* shown from this episode, default 1 */, tag?, t, w: [nodeIds], r: [nodeIds], wc, rc, how}],
+          calls: [[nodeId, 'what is called', episode? /* shown from this episode, or [episodes] that teach it; default 1 */]]}],
+fields: [{f: 'struct.path', ep? /* shown from this episode, or [episodes]; default 1 */, tag?, t, w: [nodeIds], r: [nodeIds], wc, rc, how}],
 routes: {id: {ep, t, sub, loopTo?, steps: [{n: [nodeIds, first one is where the arrow lands], t, p, file, code /* copied lines, '...' = cut */}]}},
 zoom: {nodeId: {lines, intro, after?, map: [[from, to, clockId|'head'|'data'|'test', label]], order: [fnIds],
        fns: [{id, name, span: [a, b], clock, ep? /* episode that unlocks the code view */, by: [nodeId, 'caller'], does, calls: [[nodeId, 'fn()']], minor?,
