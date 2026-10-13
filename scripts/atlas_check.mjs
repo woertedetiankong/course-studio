@@ -2,7 +2,8 @@
 // Check a project atlas against the real repo, so nothing on the map is made up.
 //   node atlas_check.mjs --data site/web/js/atlas.data.js --repo ../servohub
 // Checks: every L() has English; node paths exist; every name written like foo() exists in the repo;
-// route code lines appear, in order, in the step's file ("..." lines are cuts); zoom src equals the file lines;
+// route code lines appear, in order, in the step's file ("..." lines are cuts); a step's src (and zoom src) equals the file lines,
+// its hi / mark / cut lines sit inside them, each call-stack entry names something on its line, {placeholders} exist in the run;
 // zoom call tags name something on that line; segments sit inside the function; ids referenced anywhere exist;
 // what an episode shows sits on blocks lit by then, also counting released episodes only when course.js sits next to the data.
 // Exit code 1 when anything fails.
@@ -18,7 +19,11 @@ if (!dataPath || !repo) { console.error('usage: node atlas_check.mjs --data <atl
 const missingEn = [];
 const ctx = {window: {}, L: (zh, en) => { if (en == null || en === '') missingEn.push(zh); return zh; }};
 vm.runInNewContext(readFileSync(dataPath, 'utf8'), ctx, {filename: dataPath});
-const A = ctx.window.ATLAS;
+const A = ctx.window.ATLAS, RUNS = ctx.window.ATLAS_RUNS || {};
+// the English half too, for {placeholders} written in either language
+const ctxEn = {window: {}, L: (zh, en) => en ?? zh};
+vm.runInNewContext(readFileSync(dataPath, 'utf8'), ctxEn, {filename: dataPath});
+const AE = ctxEn.window.ATLAS;
 const errors = [], warn = [];
 const err = (where, msg) => errors.push(`${where}: ${msg}`);
 
@@ -62,6 +67,21 @@ for (const [rid, R] of Object.entries(A.routes || {})){
     const w = `route ${rid} step ${i + 1}`;
     for (const id of st.n) if (!ids.has(id)) err(w, `unknown node ${id}`);
     checkNames(w, st.p);
+    if (st.src){   // verbatim lines with real numbers (filled by atlas_extract.py fill), values from the run beside them
+      const t = st.file && fileText(st.file);
+      if (!t) err(w, st.file ? `file ${st.file} not found` : 'has src but no file');
+      else if (!st.src.length) err(w, 'src is empty: run atlas_extract.py fill');
+      else { const ls = t.split('\n'); st.src.forEach((x, k) => { if (ls[st.start - 1 + k] !== x) err(w, `src line ${st.start + k} differs from the file: run atlas_extract.py fill`); }); }
+      const end = st.start + st.src.length - 1, inside = no => no >= st.start && no <= end;
+      for (const no of [...(st.hi || []), ...Object.keys(st.mark || {}).map(Number)]) if (!inside(no)) err(w, `line ${no} is outside the shown lines ${st.start}-${end}`);
+      for (const [a, b] of st.cut || []) if (!(inside(a) && inside(b) && a <= b)) err(w, `cut ${a}-${b} is outside the shown lines ${st.start}-${end}`);
+    }
+    for (const [f, no, label] of st.stack || []){   // call stack: [file, line, what is called / defined there]
+      const t = fileText(f); if (!t){ err(w, `stack: file ${f} not found`); continue; }
+      const name = label.replace(/^\./, '').replace(/\(\)$/, '').replace(/\[.*$/, '');
+      if (!(t.split('\n')[no - 1] || '').includes(name)) err(w, `stack: line ${no} of ${f} does not contain ${name}`);
+    }
+    if (st.fn && !(A.zoom?.[st.n[0]]?.fns || []).some(f => f.id === st.fn)) err(w, `fn ${st.fn} is not a function in the zoom of ${st.n[0]}`);
     if (!st.code) return;
     if (!st.file){ err(w, 'has code but no file'); return; }
     const t = fileText(st.file); if (!t){ err(w, `file ${st.file} not found`); return; }
@@ -74,6 +94,14 @@ for (const [rid, R] of Object.entries(A.routes || {})){
     }
   });
   if (R.loopTo != null && !R.steps[R.loopTo]) err(`route ${rid}`, 'loopTo points past the last step');
+  // {name} placeholders, in both languages, must exist in the run the route quotes (written by the course's runs script)
+  for (const X of [R, AE.routes[rid]]){
+    const texts = [X.example, X.done, ...X.steps.flatMap(st => [st.t, st.p, ...Object.values(st.mark || {})])].filter(Boolean);
+    const vals = X.run ? RUNS[X.run] : null;
+    if (X.run && !vals){ err(`route ${rid}`, `run ${X.run} has no values in ATLAS_RUNS: run the course's runs script`); break; }
+    for (const s of texts) for (const m of String(s).matchAll(/\{(\w+)\}/g))
+      if (!vals || !(m[1] in vals)) err(`route ${rid}`, `{${m[1]}} is not a value of run ${X.run || '(none: set run)'}`);
+  }
 }
 for (const [nid, Z] of Object.entries(A.zoom || {})){
   const node = A.nodes.find(n => n.id === nid); if (!node){ err(`zoom ${nid}`, 'unknown node'); continue; }
@@ -95,6 +123,11 @@ for (const [nid, Z] of Object.entries(A.zoom || {})){
       if (!(lines[no - 1] || '').includes(fn)) err(w, `line ${no} does not contain ${fn}`);
     }
     for (const g of f.segs || []) if (g.a < f.start || g.b > f.start + f.src.length - 1) err(w, `segment ${g.a}-${g.b} is outside the shown lines`);
+    if (!f.segs || !f.at) err(w, 'a code view needs segs and at (either may be empty)');
+    for (const [no, targets] of Object.entries(f.ptr || {})){   // a call through a function pointer: its possible targets in this file
+      if (no < f.start || no > f.start + f.src.length - 1) err(w, `ptr line ${no} is outside the shown lines`);
+      for (const id of targets) if (!Z.fns.some(x => x.id === id)) err(w, `ptr target ${id} is not a function in this zoom`);
+    }
   }
 }
 for (const [ep, E] of Object.entries(A.eps || {})){

@@ -17,6 +17,10 @@ const LAYERS = A.layers, LK = Object.fromEntries(LAYERS.map(l => [l.k, l]));
 const N = A.nodes, BY = Object.fromEntries(N.map(n => [n.id, n]));
 const CLOCKS = A.clocks || [], FIELDS = A.fields || [], ROUTES = A.routes || {}, ZOOM = A.zoom || {}, EPS = A.eps || {};
 const BOARD = N.find(n => n.board);
+// values from real runs (window.ATLAS_RUNS, written into atlas.data.js by a course script): a route with run: '<key>'
+// fills {name} in its text and in the values shown beside its code lines, so the map quotes the video's numbers
+const RUNS = window.ATLAS_RUNS || {};
+const fv = (s, R) => String(s ?? '').replace(/\{(\w+)\}/g, (m, k) => R?.run && RUNS[R.run]?.[k] != null ? RUNS[R.run][k] : m);
 const kv = k => `var(--L-${k})`;
 // an episode split into parts (ep11a…ep11d) shares one map section: its id is the first part's, its title eps[n].t if given
 const epInfo = n => { const es = (window.EPISODES || []).filter(e => e.n === n), t = es.length > 1 && window.ATLAS.eps?.[n]?.t;
@@ -46,9 +50,11 @@ if (!epKeys.length) epKeys.push(Math.min(...Object.keys(EPS).map(Number)));
 const hashEp = () => { const m = /^#ep0*(\d+)[a-z]?$/.exec(location.hash); return m && epKeys.includes(+m[1]) ? +m[1] : null; };
 const S = {ep: hashEp() ?? store.get('atlas.ep', epKeys[epKeys.length - 1]), view: store.get('atlas.view', 'where'), sel: null,
   clock: (CLOCKS.find(c => c.d) || CLOCKS[0] || {}).id, field: 0, route: null, step: 0, q: 0, answers: store.get('atlas.answers', {}), justLit: true,
-  zoom: null, guess: store.get('atlas.guess', true), gmsg: null, gtries: 0, gstats: {}, picks: []};
+  zoom: null, guess: store.get('atlas.guess', true), gmsg: null, gtries: 0, gstats: {}, picks: [], maxStep: 0, trips: store.get('atlas.trips', {})};
 if (!epKeys.includes(S.ep)) S.ep = epKeys[epKeys.length - 1];
 if (!VIEWS.some(v => v.id === S.view)) S.view = 'where';
+// arriving from an episode (atlas.html#epNN): open on its trip, the video's twin, until the learner has walked it
+if (hashEp() != null && VIEWS.some(v => v.id === 'route') && (EPS[S.ep]?.routes || []).some(r => !S.trips[r])) S.view = 'route';
 
 // what the learner has been taught by episode ep: only released episodes count (episodes ship out of order, so a planned
 // episode with a smaller number has taught nothing yet); ?all counts every episode
@@ -259,14 +265,19 @@ function viewPanel(){
     const avail = E.routes || [];
     if (!avail.length) return `<h2>${L('这一集没有路线', 'No trips in this episode')}</h2>`;
     const R = ROUTES[S.route], st = R.steps[S.step], last = S.step === R.steps.length - 1, gs = S.gstats[S.route];
-    return `<div class="list">${avail.map(id => `<button class="opt" type="button" data-route="${id}" aria-pressed="${id === S.route}"><span class="rate">${L(`第 ${ROUTES[id].ep} 集`, `Ep ${ROUTES[id].ep}`)}</span><b>${esc(ROUTES[id].t)}</b><small>${esc(ROUTES[id].sub)}</small></button>`).join('')}</div>
-     <button class="toggle" type="button" data-act="guess" aria-pressed="${S.guess}"><i></i>${L('先猜再看：每一步先在地图上猜下一站', 'Guess first: pick the next stop on the map before it is shown')}</button>
+    return `${avail.length > 1 ? `<div class="list">${avail.map(id => `<button class="opt" type="button" data-route="${id}" aria-pressed="${id === S.route}"><span class="rate">${L(`第 ${ROUTES[id].ep} 集`, `Ep ${ROUTES[id].ep}`)}</span><b>${esc(ROUTES[id].t)}</b><small>${esc(ROUTES[id].sub)}</small></button>`).join('')}</div>`
+       : `<div><h2>${esc(R.t)}</h2><p class="hint">${esc(R.sub)}</p></div>`}
+     ${R.example ? `<div class="ex"><span>${L('一路跟着的例子', 'Running example')}</span><b>${esc(fv(R.example, R))}</b>${R.run && RUNS[R.run]?.cmd ? `<small>${L('数字来自', 'Numbers from')} <code>${esc(RUNS[R.run].cmd)}</code></small>` : ''}</div>` : ''}
+     ${stopStrip(R)}
+     <button class="toggle" type="button" data-act="guess" aria-pressed="${S.guess}"><i></i>${L('先猜再看：每一步先猜下一站', 'Guess first: predict each next stop before it is shown')}</button>
      <div class="ctrl"><button class="btn" type="button" data-act="prev" ${S.step === 0 ? 'disabled' : ''}>${L('上一步', 'Back')}</button><span class="count">${S.step + 1} / ${R.steps.length}</span>${S.guess ? '' : `<button class="btn go" type="button" data-act="next" ${last ? 'disabled' : ''}>${L('下一步', 'Next')}</button>`}<button class="btn" type="button" data-act="restart">${L('重来', 'Restart')}</button>${S.guess && gs ? `<span class="hint">${L(`猜对 ${gs.right} / ${gs.total}`, `${gs.right} / ${gs.total} guessed`)}</span>` : ''}</div>
      ${S.gmsg ? `<p class="msg ${S.gmsg.ok === true ? 'ok' : S.gmsg.ok === false ? 'bad' : 'neu'}">${esc(S.gmsg.t)}</p>` : ''}
-     <div style="display:flex;gap:14px;align-items:flex-start"><span class="stepno">${S.step + 1}</span><div style="display:flex;flex-direction:column;gap:6px;min-width:0"><h2 style="font-size:19px">${esc(st.t)}</h2><p>${esc(st.p)}</p></div></div>
-     <p class="hint">${L('经过：', 'Passes: ')}${st.n.map(id => esc(BY[id].f || BY[id].t)).join(L('、', ', '))}</p>
-     ${st.code ? `<pre>${esc(st.code)}</pre>` : ''}
-     ${S.guess && !last ? `<div class="guess"><b>${L('下一步会走到哪？', 'Where does it go next?')}</b><span class="hint">${L('在地图上点一块。猜对了才往下走，第一次就猜对才计分。', 'Click a block on the map. You move on when you are right; only first tries score.')}</span><button class="linkbtn" type="button" data-act="reveal">${L('直接看答案', 'Show me')}</button></div>` : S.guess ? `<p class="hint">${L('走完了。点「重来」再猜一遍。', 'Done. Press Restart to guess again.')}</p>` : ''}`;
+     <div style="display:flex;gap:14px;align-items:flex-start"><span class="stepno">${S.step + 1}</span><div style="display:flex;flex-direction:column;gap:6px;min-width:0"><h2 style="font-size:19px">${esc(fv(st.t, R))}</h2><p>${esc(fv(st.p, R))}</p></div></div>
+     ${st.stack ? stackLine(st) : `<p class="hint">${L('经过：', 'Passes: ')}${st.n.map(id => esc(BY[id].f || BY[id].t)).join(L('、', ', '))}</p>`}
+     ${filePos(st)}
+     ${stopCode(st, R)}
+     ${codeLink(st)}
+     ${last ? tripDone(R) : guessBox(R, st)}`;
   }
   if (S.view === 'quiz'){
     const qs = E.qs || [], ans = S.answers[S.ep] || {}, done = Object.values(ans).filter(v => v.ok).length;
@@ -297,15 +308,76 @@ function multiCard(x, i, a){
   }
   return `<div class="q ${on ? 'active' : ''}" role="button" tabindex="0" data-q="${i}"><span class="qs">${L(`第 ${i + 1} 题 · 改动影响 · 可多选`, `Question ${i + 1} · change impact · pick several`)}${on && !a ? L(' · 现在在地图上选', ' · pick on the map') : ''}</span><span class="qt">${esc(x.q)}</span>${body}</div>`;
 }
+/* ---------- one trip, stop by stop: the video's stop strip, its code (verbatim, located, in call order) and its numbers ---------- */
+const stepNode = st => st.n[0];
+const stepFn = st => st.fn && ZOOM[stepNode(st)]?.fns.find(f => f.id === st.fn);
+const fileOf = p => p.split('/').pop();
+function stopStrip(R){
+  return `<ol class="stops" aria-label="${L('站点', 'Stops')}">${R.steps.map((x, i) => `<li><button type="button" data-stop="${i}" class="${i === S.step ? 'now' : i < S.step ? 'done' : ''}" ${S.guess && i > S.maxStep ? 'disabled' : ''} title="${esc(fv(x.t, R))}"><b>${i + 1}</b>${x.s ? `<span>${esc(x.s)}</span>` : ''}</button></li>`).join('')}</ol>`;
+}
+// call stack as in the videos: board.c:229 EncoderDataRead() › drv_encoder.c:202 .read › :615 TAMAGAWA_Encoder_Data_Read()
+function stackLine(st){
+  let prev = null;
+  return `<p class="stack" aria-label="${L('调用栈', 'Call stack')}">${st.stack.map(([f, no, label]) => { const same = f === prev; prev = f; return `<span>${same ? '' : esc(fileOf(f))}:${no} <b>${esc(label)}</b></span>`; }).join('<i>›</i>')}</p>`;
+}
+// where this stop sits in its file: the file strip from the zoom, the function lit, the stop's lines marked
+function filePos(st){
+  const F = stepFn(st), Z = ZOOM[stepNode(st)]; if (!F || !st.src) return '';
+  const lo = st.start, hi = st.start + st.src.length - 1;
+  return `<div class="fpos"><div class="bar">${Z.map.map(([a, b, c]) => `<i class="${b >= F.span[0] && a <= F.span[1] ? 'on' : ''}" style="flex:${b - a + 1};--c:${spanColor(c)}"></i>`).join('')}<u style="left:${(lo - 1) / Z.lines * 100}%;width:${(hi - lo + 1) / Z.lines * 100}%"></u></div>
+    <small>${esc(BY[stepNode(st)].f)} · ${esc(F.name)} · ${L(`第 ${lo}–${hi} 行（共 ${Z.lines} 行）`, `lines ${lo}–${hi} of ${Z.lines}`)}</small></div>`;
+}
+// the stop's code: real line numbers, cut ranges as one "… L640–646: what they do" row, the run's value under a line
+function stopCode(st, R){
+  if (!st.src) return st.code ? `<pre>${esc(st.code)}</pre>` : '';
+  const end = st.start + st.src.length - 1, rows = [], fn = st.stack ? st.stack[st.stack.length - 1][2] : (stepFn(st)?.name || '');
+  for (let no = st.start; no <= end; no++){
+    const c = (st.cut || []).find(([a, b]) => no >= a && no <= b);
+    if (c){ if (no === c[0]) rows.push(`<div class="sr cut"><span class="no">⋮</span><span>L${c[0]}–${c[1]} · ${esc(c[2])}</span></div>`); continue; }
+    const mk = st.mark?.[no], on = mk != null || (st.hi || []).includes(no);
+    rows.push(`<div class="sr ${on ? 'on' : ''}"><span class="no">${no}</span><code>${hlLine(st.src[no - st.start])}</code></div>`);
+    if (mk != null) rows.push(`<div class="sr val"><span class="no"></span><span>↳ ${esc(fv(mk, R))}</span></div>`);
+  }
+  return `<div class="scode"><div class="sh">${esc(st.file)} · L${st.start}–${end}${fn ? ' · ' + esc(fn) : ''}</div><div class="sb">${rows.join('')}</div></div>`;
+}
+function codeLink(st){
+  const F = stepFn(st); if (!F) return '';
+  return canZoom(stepNode(st)) && canCode(F, BY[stepNode(st)]) ? `<button class="zbtn" type="button" data-act="opencode">${L(`在代码视图里打开 ${F.name}`, `Open ${F.name} in the code view`)}</button>` : '';
+}
+// the next stop in the same file is guessed by function, not by block (five of episode 11's nine stops sit in one file)
+function guessBox(R, st){
+  const nx = R.steps[S.step + 1];
+  if (!S.guess || !nx) return '';
+  if (stepNode(nx) === stepNode(st) && nx.fn){
+    if (nx.fn === st.fn) return `<div class="guess"><b>${L('下一站还在同一个函数里。', 'The next stop is in the same function.')}</b><button class="btn go" type="button" data-act="next" style="align-self:flex-start">${L('下一站', 'Next stop')}</button></div>`;
+    const Z = ZOOM[stepNode(st)], opts = [...Z.fns.filter(f => f.id !== nx.fn && f.id !== st.fn && !f.minor).slice(0, 3), Z.fns.find(f => f.id === nx.fn)].sort((a, b) => a.span[0] - b.span[0]);
+    return `<div class="guess"><b>${L(`下一站还在 ${BY[stepNode(st)].f} 里：是哪个函数？`, `The next stop is still in ${BY[stepNode(st)].f}. Which function?`)}</b>
+      <div class="fopts">${opts.map(f => `<button class="btn" type="button" data-fguess="${f.id}">${esc(f.name)}</button>`).join('')}</div>
+      <button class="linkbtn" type="button" data-act="reveal">${L('直接看答案', 'Show me')}</button></div>`;
+  }
+  return `<div class="guess"><b>${L('下一步会走到哪？', 'Where does it go next?')}</b><span class="hint">${L('在地图上点一块。猜对了才往下走，第一次就猜对才计分。', 'Click a block on the map. You move on when you are right; only first tries score.')}</span><button class="linkbtn" type="button" data-act="reveal">${L('直接看答案', 'Show me')}</button></div>`;
+}
+function tripDone(R){
+  const files = new Set(R.steps.flatMap(x => [x.file, ...(x.stack || []).map(c => c[0])]).filter(Boolean)), gs = S.gstats[S.route];
+  return `<div class="tripdone"><b>${L('走完了', 'Trip complete')}</b>${R.done ? `<p>${esc(fv(R.done, R))}</p>` : ''}
+    <ul><li>${L(`${R.steps.length} 站`, `${R.steps.length} stops`)}</li><li>${L(`${files.size} 个文件`, `${files.size} files`)}</li>${S.guess && gs ? `<li>${L(`第一次就猜对 ${gs.right} / ${gs.total}`, `${gs.right} / ${gs.total} right first time`)}</li>` : ''}</ul>
+    <div class="ctrl"><button class="btn" type="button" data-act="restart">${L('再走一遍', 'Walk it again')}</button>${EPS[S.ep].qs?.length ? `<button class="btn go" type="button" data-act="toquiz">${L('去答地图题', 'On to the map quiz')}</button>` : ''}</div></div>`;
+}
+function goStep(i){
+  const R = ROUTES[S.route]; S.step = Math.max(0, Math.min(R.steps.length - 1, i)); S.maxStep = Math.max(S.maxStep, S.step);
+  if (S.step === R.steps.length - 1 && !S.trips[S.route]){ S.trips[S.route] = true; store.set('atlas.trips', S.trips); }
+}
 function renderSide(){
   $('#side').innerHTML = S.zoom ? zoomPanel() : S.sel ? nodeDetail(BY[S.sel]) : viewPanel();
+  $('.main')?.classList.toggle('trip', S.view === 'route' && !S.zoom && !S.sel);   // a trip widens the side sheet to carry the code
   if (!S.zoom && !S.sel && S.view === 'when') startScope(); else stopScope();
 }
 
 /* ---------- zoom: file → functions → code ---------- */
 const FCOL = {head: 'var(--line)', data: 'var(--ink)', test: 'var(--line)'};
 const spanColor = c => FCOL[c] || (CLOCKS.find(k => k.id === c)?.color) || 'var(--ink-2)';
-function openZoom(id){ S.zoom = {node: id, fn: null, seg: null}; S.sel = null; paintNodes(); renderSide(); }
+function openZoom(id, fn = null, hl = null, back = null){ S.zoom = {node: id, fn, seg: null, hl, back}; S.sel = null; paintNodes(); renderSide();
+  if (hl) requestAnimationFrame(() => $('#mapbox .lr.hl')?.scrollIntoView({block: 'center', behavior: 'smooth'})); }
 function closeZoom(sel){ S.zoom = null; S.sel = sel || null; $('#mapbox').innerHTML = ''; svg = null; paintNodes(); renderSide(); }
 const zchip = (id, label) => `<button class="zc" type="button" data-go="${id}" style="--k:${kv(BY[id].k)}" title="${esc(BY[id].f || BY[id].t)}">${esc(label || BY[id].f || BY[id].t)}</button>`;
 function hlLine(line, at){
@@ -338,15 +410,18 @@ function renderZoom(){
   const F = Z.fns.find(f => f.id === S.zoom.fn), ck = CLOCKS.find(c => c.id === F.clock);
   crumb.push(`<button type="button" data-z="file">${esc(n.f)}</button><span>›</span><b>${esc(F.name)}</b>`);
   const rows = F.src.map((line, i) => {
-    const no = F.start + i, si = F.segs.findIndex(s => no >= s.a && no <= s.b), at = F.at[no];
-    return `<div class="lr ${si >= 0 ? 'inseg' : ''} ${si >= 0 && si === S.zoom.seg ? 'on' : ''}" ${si >= 0 ? `data-seg="${si}"` : ''}><span class="sg">${si >= 0 && no === F.segs[si].a ? si + 1 : ''}</span><span class="no">${no}</span><code>${hlLine(line, at)}</code><span class="cl">${(at || []).map(([id]) => zchip(id)).join('')}</span></div>`;
+    const no = F.start + i, si = F.segs.findIndex(s => no >= s.a && no <= s.b), at = F.at[no], hl = S.zoom.hl && no >= S.zoom.hl[0] && no <= S.zoom.hl[1];
+    // a call through a function pointer (.read / .process) names its possible targets in this file: one click follows it
+    const ptr = (F.ptr?.[no] || []).map(id => Z.fns.find(f => f.id === id)).filter(f => f && canCode(f, n)).map(f => `<button class="zc zp" type="button" data-fn="${f.id}" title="${esc(f.name)}">→ ${esc(f.name)}</button>`).join('');
+    return `<div class="lr ${si >= 0 ? 'inseg' : ''} ${si >= 0 && si === S.zoom.seg ? 'on' : ''} ${hl ? 'hl' : ''}" ${si >= 0 ? `data-seg="${si}"` : ''}><span class="sg">${si >= 0 && no === F.segs[si].a ? si + 1 : ''}</span><span class="no">${no}</span><code>${hlLine(line, at)}</code><span class="cl">${(at || []).map(([id]) => zchip(id)).join('')}${ptr}</span></div>`;
   }).join('');
   box.innerHTML = `<div class="crumb">${crumb.join('')}</div><div class="zoom">
     <h2>${esc(F.name)}<small>${ck ? esc(ck.t) + (ck.per ? ' · ' + esc(ck.per) : '') + ' · ' : ''}${F.by ? L(`被 ${esc(F.by[1])} 调用`, `called by ${esc(F.by[1])}`) : ''}</small></h2>
     <p>${esc(F.does)} ${L('点左边的编号或任意一行，右边会解释这一段。右栏的标签是这一行调用去了哪一块，点它回到地图。', 'Click a number on the left or any line to have that part explained. The tags on the right show which block each call goes to; click one to return to the map.')}</p>
     <div class="code"><div class="in">${rows}</div></div></div>`;
 }
-function zoomPanel(){
+function zoomPanel(){ const b = S.zoom.back; return (b ? `<button class="back" type="button" data-z="trip">← ${L(`回到路线第 ${b.step + 1} 站`, `Back to stop ${b.step + 1} of the trip`)}</button>` : '') + zoomPanelBody(); }
+function zoomPanelBody(){
   const Z = ZOOM[S.zoom.node];
   if (!S.zoom.fn){
     const zn = BY[S.zoom.node], open = Z.fns.some(f => canCode(f, zn)), next = Math.min(...Z.fns.filter(f => f.src).map(f => codeEp(f, zn) ?? Infinity));
@@ -412,7 +487,7 @@ function renderLedger(){
 function renderViews(){
   $('#views').innerHTML = VIEWS.map(v => `<button type="button" role="tab" data-view="${v.id}" aria-selected="${v.id === S.view}">${esc(v.t)}<small>${esc(v.s)}</small></button>`).join('');
 }
-function ensureRoute(){ const a = EPS[S.ep].routes || []; if (!a.includes(S.route)) { S.route = a[a.length - 1] || null; S.step = 0; } }
+function ensureRoute(){ const a = EPS[S.ep].routes || []; if (!a.includes(S.route)) { S.route = a[a.length - 1] || null; S.step = 0; S.maxStep = 0; } }
 function renderAll(){ ensureRoute(); renderEps(); renderLedger(); renderViews(); paintNodes(); renderSide(); }
 
 /* ---------- events ---------- */
@@ -424,7 +499,8 @@ function onNode(id){
   if (S.view === 'route' && !S.sel && S.guess && S.route){
     const R = ROUTES[S.route]; if (S.step >= R.steps.length - 1) return;
     const nx = R.steps[S.step + 1], st = S.gstats[S.route] = S.gstats[S.route] || {right: 0, total: 0};
-    if (nx.n.includes(id)){ if (S.gtries === 0) st.right++; st.total++; S.gtries = 0; S.step++; S.gmsg = {ok: true, t: L(`猜对了：${BY[id].t}。`, `Right: ${BY[id].t}.`)}; flash(id, true); }
+    if (stepNode(nx) === stepNode(R.steps[S.step]) && nx.fn){ S.gmsg = {ok: null, t: L('下一站还在这个文件里：在右边选函数。', 'The next stop is in the same file: pick the function on the right.')}; paintNodes(); renderSide(); return; }
+    if (nx.n.includes(id)){ if (S.gtries === 0) st.right++; st.total++; S.gtries = 0; goStep(S.step + 1); S.gmsg = {ok: true, t: L(`猜对了：${BY[id].t}。`, `Right: ${BY[id].t}.`)}; flash(id, true); }
     else { S.gtries++; const k = BY[nx.n[0]]; S.gmsg = {ok: false, t: L(`不是「${BY[id].t}」。提示：下一站在${k.board ? '共享数据' : `第 ${LK[k.k].n} 层（${LK[k.k].t}）`}。`, `Not “${BY[id].t}”. Hint: the next stop is in ${k.board ? 'the shared state' : `layer ${LK[k.k].n} (${LK[k.k].t})`}.`)}; flash(id, false); }
     paintNodes(); renderSide(); return;
   }
@@ -445,16 +521,17 @@ function zoomNav(b){
   const d = b.dataset;
   if (d.go){ closeZoom(d.go); return true; }
   if (d.z === 'map'){ closeZoom(); return true; }
-  if (d.z === 'file'){ S.zoom.fn = null; S.zoom.seg = null; }
+  if (d.z === 'trip'){ const b = S.zoom.back; S.zoom = null; svg = null; $('#mapbox').innerHTML = ''; S.view = 'route'; S.route = b.route; S.step = b.step; renderViews(); paintNodes(); renderSide(); return true; }
+  if (d.z === 'file'){ S.zoom.fn = null; S.zoom.seg = null; S.zoom.hl = null; }
   else if (d.z === 'segs'){ S.zoom.seg = null; }
-  else if (d.fn){ const f = ZOOM[S.zoom.node].fns.find(x => x.id === d.fn); if (!canCode(f, BY[S.zoom.node])) return false; S.zoom.fn = d.fn; S.zoom.seg = null; }
+  else if (d.fn){ const f = ZOOM[S.zoom.node].fns.find(x => x.id === d.fn); if (!canCode(f, BY[S.zoom.node])) return false; S.zoom.fn = d.fn; S.zoom.seg = null; S.zoom.hl = null; }
   else if (d.seg != null && S.zoom.fn){ S.zoom.seg = +d.seg; }
   else if (d.fnspan){ const f = ZOOM[S.zoom.node].fns.find(f => f.span[0] === +d.fnspan && canCode(f, BY[S.zoom.node])); if (!f) return false; S.zoom.fn = f.id; S.zoom.seg = null; }
   else return false;
   renderZoom(); renderSide(); return true;
 }
 function setEp(n){
-  S.ep = n; store.set('atlas.ep', n); S.sel = null; S.field = 0;
+  S.ep = n; store.set('atlas.ep', n); S.sel = null; S.field = 0; S.maxStep = 0;
   if (S.zoom && (!canZoom(S.zoom.node) || (S.zoom.fn && !canCode(ZOOM[S.zoom.node].fns.find(f => f.id === S.zoom.fn), BY[S.zoom.node])))){ S.zoom = null; svg = null; $('#mapbox').innerHTML = ''; } S.q = 0; S.step = 0; S.picks = []; S.gmsg = null; S.justLit = true;
   history.replaceState(null, '', '#' + epInfo(n).id); renderAll();
 }
@@ -472,7 +549,15 @@ $('#side').addEventListener('click', e => {
   if (S.zoom){ zoomNav(b); return; }
   if (d.act === 'zoom'){ openZoom(S.sel); return; }
   if (d.act === 'guess'){ S.guess = !S.guess; store.set('atlas.guess', S.guess); S.gmsg = null; S.gtries = 0; }
-  else if (d.act === 'reveal'){ const st = S.gstats[S.route] = S.gstats[S.route] || {right: 0, total: 0}; st.total++; S.gtries = 0; S.step++; S.gmsg = {ok: null, t: L('看了答案，这一步不计分。', 'Answer shown; this step does not score.')}; }
+  else if (d.act === 'reveal'){ const st = S.gstats[S.route] = S.gstats[S.route] || {right: 0, total: 0}; st.total++; S.gtries = 0; goStep(S.step + 1); S.gmsg = {ok: null, t: L('看了答案，这一步不计分。', 'Answer shown; this step does not score.')}; }
+  else if (d.fguess){
+    const R = ROUTES[S.route], nx = R.steps[S.step + 1], F = ZOOM[stepNode(nx)].fns.find(f => f.id === d.fguess), st = S.gstats[S.route] = S.gstats[S.route] || {right: 0, total: 0};
+    if (d.fguess === nx.fn){ if (S.gtries === 0) st.right++; st.total++; S.gtries = 0; goStep(S.step + 1); S.gmsg = {ok: true, t: L(`猜对了：${F.name}。`, `Right: ${F.name}.`)}; }
+    else { S.gtries++; S.gmsg = {ok: false, t: L(`不是 ${F.name}。提示：看上一站的代码最后调用了谁，或者它返回到了哪里。`, `Not ${F.name}. Hint: look at what the last stop’s code calls, or where it returns to.`)}; }
+  }
+  else if (d.stop != null){ if (!S.guess || +d.stop <= S.maxStep){ goStep(+d.stop); S.gmsg = null; S.gtries = 0; } }
+  else if (d.act === 'opencode'){ const st = ROUTES[S.route].steps[S.step]; openZoom(stepNode(st), st.fn, [st.start, st.start + st.src.length - 1], {route: S.route, step: S.step}); return; }
+  else if (d.act === 'toquiz'){ S.view = 'quiz'; store.set('atlas.view', S.view); S.gmsg = null; renderViews(); }
   else if (d.act === 'submit'){ const q = EPS[S.ep].qs[S.q], ok = q.a.length === S.picks.length && q.a.every(x => S.picks.includes(x)); S.answers[S.ep] = S.answers[S.ep] || {}; S.answers[S.ep][S.q] = {ok, picks: S.picks.slice()}; saveProgress(); }
   else if (d.act === 'clearpick'){ S.picks = []; }
   else if (d.act === 'redo'){ delete S.answers[S.ep][S.q]; saveProgress(); S.picks = []; }
@@ -480,10 +565,10 @@ $('#side').addEventListener('click', e => {
   else if (d.node){ S.sel = d.node; }
   else if (d.clock){ S.clock = d.clock; }
   else if (d.field){ S.field = +d.field; }
-  else if (d.route){ S.route = d.route; S.step = 0; S.gmsg = null; S.gtries = 0; }
-  else if (d.act === 'next'){ S.step = Math.min(ROUTES[S.route].steps.length - 1, S.step + 1); }
+  else if (d.route){ S.route = d.route; S.step = 0; S.maxStep = 0; S.gmsg = null; S.gtries = 0; }
+  else if (d.act === 'next'){ goStep(S.step + 1); }
   else if (d.act === 'prev'){ S.step = Math.max(0, S.step - 1); S.gmsg = null; S.gtries = 0; }
-  else if (d.act === 'restart'){ S.step = 0; S.gmsg = null; S.gtries = 0; delete S.gstats[S.route]; }
+  else if (d.act === 'restart'){ S.step = 0; S.maxStep = 0; S.gmsg = null; S.gtries = 0; delete S.gstats[S.route]; }
   else if (d.q != null){ if (+d.q !== S.q) S.picks = []; S.q = +d.q; }
   else if (d.act === 'resetq'){ S.answers[S.ep] = {}; saveProgress(); S.q = 0; S.picks = []; }
   else return;
@@ -492,7 +577,7 @@ $('#side').addEventListener('click', e => {
 $('#side').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="button"]')) { e.preventDefault(); e.target.click(); } });
 document.addEventListener('keydown', e => {
   if (S.view !== 'route' || S.sel || S.zoom || S.guess || !S.route) return;
-  if (e.key === 'ArrowRight'){ S.step = Math.min(ROUTES[S.route].steps.length - 1, S.step + 1); paintNodes(); renderSide(); }
+  if (e.key === 'ArrowRight'){ goStep(S.step + 1); paintNodes(); renderSide(); }
   if (e.key === 'ArrowLeft'){ S.step = Math.max(0, S.step - 1); paintNodes(); renderSide(); }
 });
 

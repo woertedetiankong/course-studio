@@ -114,6 +114,7 @@ code,.mono{font-family:var(--f-code); font-size:.86em}
 
 /* side sheet */
 .side{padding:20px 20px 22px; display:flex; flex-direction:column; gap:16px; position:sticky; top:calc(env(safe-area-inset-top, 0px) + 12px); max-height:calc(100vh - 24px); overflow:auto; min-width:0}
+.side > *{flex-shrink:0}   /* the sheet scrolls; its blocks (code boxes with overflow) must keep their height */
 .side h2{font:600 22px/1.3 var(--f-display)}
 .side h3{font-size:13px; font-weight:700; color:var(--mute)}
 .side p{color:var(--ink-2)}
@@ -230,9 +231,54 @@ pre{margin:0; font:12px/1.6 var(--f-code); background:var(--paper); border-radiu
 .verdict{display:flex; flex-direction:column; gap:4px; margin:0; padding:0; list-style:none}
 .verdict li{font-size:13px; padding:4px 8px; border-radius:4px; border-left:3px solid var(--c); background:var(--paper)}
 
-@media (max-width:1100px){ .main{grid-template-columns:minmax(0,1fr)} .side{position:static; max-height:none} }
+/* one trip (route view): the side sheet widens to carry the stop's code, like the code half of a video frame */
+.main.trip{grid-template-columns:minmax(0,1fr) 540px}
+.main.trip .mapbox svg{min-width:720px}
+.ex{display:flex; flex-direction:column; gap:3px; padding:8px 12px; border-left:3px solid var(--signal); background:var(--paper); border-radius:0 4px 4px 0}
+.ex span{font-size:12px; color:var(--mute)}
+.ex b{font:700 13px/1.5 var(--f-code); color:var(--ink); overflow-wrap:anywhere}
+.ex small{font-size:12px; color:var(--mute); overflow-wrap:anywhere}
+.stops{display:grid; grid-template-columns:repeat(auto-fit,minmax(46px,1fr)); gap:4px; margin:0; padding:0; list-style:none}
+.stops button{width:100%; display:flex; flex-direction:column; align-items:center; gap:1px; min-width:0; padding:4px 4px 5px; border:1.5px solid var(--line); border-radius:4px; background:var(--sheet); font-size:11px; line-height:1.2; color:var(--mute)}
+.stops button b{font:900 15px/1 var(--f-display); font-variant-numeric:tabular-nums}
+.stops button span{max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10.5px}
+.stops button.done{border-color:var(--ink-2); color:var(--ink)}
+.stops button.now{border-color:var(--signal); background:var(--signal-soft); color:var(--signal-ink)}
+.stops button:disabled{opacity:.45; cursor:default}
+.stack{display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 6px; font:12px/1.6 var(--f-code); color:var(--mute)}
+.stack b{color:var(--ink); font-weight:600}
+.stack i{font-style:normal; color:var(--signal-ink); font-weight:700}
+.fpos{display:flex; flex-direction:column; gap:4px}
+.fpos .bar{position:relative; display:flex; height:14px; border:1.5px solid var(--line); border-radius:3px; overflow:hidden; background:var(--sheet)}
+.fpos .bar i{background:var(--c); opacity:.22}
+.fpos .bar i.on{opacity:.65}
+.fpos .bar u{position:absolute; top:0; bottom:0; min-width:4px; background:var(--signal); box-shadow:0 0 0 1.5px var(--signal-ink)}
+.fpos small{font:11.5px/1.4 var(--f-code); color:var(--mute); overflow-wrap:anywhere}
+.scode{border:1.5px solid var(--line); border-radius:6px; overflow:hidden; background:var(--sheet)}
+.scode .sh{font:600 11.5px/1.5 var(--f-code); color:var(--ink-2); padding:6px 10px; background:var(--paper); border-bottom:1.5px solid var(--line); overflow-wrap:anywhere}
+.scode .sb{display:grid; overflow-x:auto; padding:6px 0}
+.sr{display:grid; grid-template-columns:46px max-content; width:max-content; min-width:100%; padding-right:14px; font:12px/1.7 var(--f-code)}
+.sr .no{color:var(--mute); text-align:right; padding-right:12px; font-variant-numeric:tabular-nums; user-select:none}
+.sr code{white-space:pre; font-family:inherit; font-size:inherit; color:var(--ink)}
+.sr .cm{color:var(--mute)} .sr .pp{color:var(--ink-2); font-style:italic}
+.sr.on{background:var(--signal-soft)}
+.sr.on .no{color:var(--signal-ink); font-weight:700}
+.sr.val span:last-child{color:var(--signal-ink); font-weight:700; white-space:pre; padding-left:4ch}
+.sr.cut{color:var(--mute); font-style:italic}
+.sr.cut span:last-child{white-space:normal; max-width:44ch}
+.fopts{display:flex; flex-wrap:wrap; gap:6px}
+.fopts .btn{font:500 12px var(--f-code); background:var(--sheet)}
+.tripdone{display:flex; flex-direction:column; gap:8px; padding:12px 14px; border:1.5px solid var(--ok); border-radius:6px}
+.tripdone > b{font-size:15px; color:var(--ok)}
+.tripdone ul{display:flex; flex-wrap:wrap; gap:6px; margin:0; padding:0; list-style:none}
+.tripdone li{font:700 12px var(--f-code); padding:2px 8px; border-radius:3px; background:var(--paper)}
+.lr.hl{background:var(--signal-soft)}
+.lr.hl .no{color:var(--signal-ink); font-weight:700}
+.zp{--k:var(--ink-2)}
+
+@media (max-width:1100px){ .main,.main.trip{grid-template-columns:minmax(0,1fr)} .side{position:static; max-height:none} }
 @media (max-width:700px){ .side-top{align-items:flex-start} .fcards{grid-template-columns:minmax(0,1fr)} .mast{grid-template-columns:minmax(0,1fr)} .mast h1{font-size:34px} .swipe{display:block} .views button{padding:8px 10px 9px; font-size:14px} .views button small{display:none} }
 @media (prefers-reduced-motion: reduce){ .lit .beacon,.pulse{animation:none} }
 
 /* code is shown verbatim: no ligatures (JetBrains Mono would draw -> as an arrow, != as ≠) */
-code,pre,.lr,[class*="code"]{font-variant-ligatures:none; font-feature-settings:"liga" 0, "calt" 0}
+code,pre,.lr,.sr,.stack,.ex b,[class*="code"]{font-variant-ligatures:none; font-feature-settings:"liga" 0, "calt" 0}
