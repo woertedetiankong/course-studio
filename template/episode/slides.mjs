@@ -62,6 +62,8 @@ const code = await p.evaluate(total => {
   return [...rows.values()];
 }, TL.total);
 // keep only the identifier of a pane's label ('encoder_data[] · the function table' → 'encoder_data[]'); prose labels are dropped (they are one language only)
+// a pane known only by its title (older codeBox without file/lines) is listed only when the title names a file or a function
+code.splice(0, code.length, ...code.filter(c => c.file || /\.(c|h|cpp|py|go|ts|js|rs|m|json)\b|\(\)/.test(c.title || '')));
 for (const c of code) { const f = (c.fn || '').split(' · ')[0].trim(); c.fn = /^[A-Za-z_][\w.>\-]*(\[\]|\(\))?$/.test(f) ? f : ''; }
 for (const c of code) { const sc = TL.scenes[sceneAt(c.t)]; c.scene = sc.id; c.slide = slides.reduce((k, sl, i) => sl.t <= c.t + .01 ? i : k, 0); }
 // Practice page: practice.json {questions: [{q, a, why: [zh, en], scene?, src?: ['file:line'], run?, reasoned?}]}
