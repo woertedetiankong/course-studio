@@ -16,6 +16,7 @@ A course is a series of **episodes**. Each episode teaches one core mechanism in
 | 4′ 看流程图 | For learners who can't read code yet: clickable diagrams (structure / timing / one trip through the data), each box with plain words, file + function, folded real code, a jump into the video | `episode/flow.html` (step `flow`) |
 | 4″ 看项目地图 | One map of the whole codebase shared by every episode: where code lives, what wakes it, who writes/reads shared state, one request end to end (guess-then-reveal), questions answered by clicking the map (incl. change impact); zoom file → functions → real code | `site/web/atlas.html` + `js/atlas.data.js` (step `map`, `COURSE_META.atlas`) |
 | 5 真正的作业 | Link to the original course's lab and what changes vs. the dojo | data in `course.js` |
+| 打电话 (optional) | Output after input: the learner phones an AI study buddy and explains the episode aloud; the buddy follows up and only quotes the episode; on hang-up a report links each gap to its moment in the video | `references/voice-call.md` (prototype: robot-course `voice/`) |
 
 **Every course is bilingual (中文 / English).** All web UI has a 中 / EN switch (localStorage `course.lang`, shared by the home, the dojo and the lab pages; default from the browser). Every piece of learner-facing text is written in both languages in the same step that creates it: course data, dojo lessons and hints, test failure messages, lab pages, chapter titles, starter-code comments, README. Chinese is the base; English lives beside it (see "Bilingual" below). A step is not done until its English exists.
 
@@ -123,3 +124,4 @@ If a course predates the setting (no `audience` in `COURSE_META`), it is `beginn
 - `references/flow-page.md` — flowchart page (看流程图): diagram kinds, node data, detail panel, questions
 - `references/atlas.md` — project atlas (项目地图): the five views, lighting rules, data format, extract → write → fill → check workflow, look
 - `references/hub.md` — `course.js` schema, step kinds, progress keys, adding episodes
+- `references/voice-call.md` — voice call with an AI study buddy: the idea, talk card, token/audio shape, measured pitfalls, cost, testing
