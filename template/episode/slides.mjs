@@ -3,6 +3,8 @@
 // it only gained things (3b1b build-up: a term, a box, a curve appears) — the slide keeps the finished picture.
 // Writes slides/NNN.jpg + slides.json + slides.html (Bento page: chapters, 中 / EN, jump into the video)
 // + slides.pdf (A4 landscape handout, one slide per page, bilingual notes). Run after record.mjs.
+// Two pages close the 课件: a code index (every code pane in order of appearance, found by playing the video through and
+// listening to codeShown() in head.html) and a practice page from practice.json (if present; format in video.md "Slides").
 // Usage: node slides.mjs [--min-diff 1.2] [--max-lines 6] [--keep-builds] [--no-pdf]
 //   --min-diff: higher = fewer slides; --keep-builds: one slide per build step too; --max-lines: cap on lines per slide
 import { chromium } from 'playwright-core';
@@ -42,9 +44,38 @@ for (const [si, s] of TL.scenes.entries()) {
     slides.push(last);
   }
 }
+// Code index: render every 0.25 s, collect what codeShown() reports; one row per excerpt, at its first appearance
+// (later reappearances after it left the screen are kept as extra times).
+const sceneAt = t => { let k = 0; TL.scenes.forEach((s, i) => { if (s.start <= t) k = i; }); return k; };
+const code = await p.evaluate(total => {
+  const rows = new Map(); let prev = new Set();
+  for (let t = 0; t < total; t += .25) {
+    const now = new Map(); window.__codeSink = c => { const id = c.file ? `${c.key || c.file}:${c.a}-${c.b}` : c.key || c.title; if (id && !now.has(id)) now.set(id, c); };
+    render(t);
+    for (const [id, c] of now) {
+      if (!rows.has(id)) rows.set(id, {...c, t: +t.toFixed(2), again: []});
+      else if (!prev.has(id)) rows.get(id).again.push(+t.toFixed(2));
+    }
+    prev = new Set(now.keys());
+  }
+  window.__codeSink = null;
+  return [...rows.values()];
+}, TL.total);
+// keep only the identifier of a pane's label ('encoder_data[] · the function table' → 'encoder_data[]'); prose labels are dropped (they are one language only)
+for (const c of code) { const f = (c.fn || '').split(' · ')[0].trim(); c.fn = /^[A-Za-z_][\w.>\-]*(\[\]|\(\))?$/.test(f) ? f : ''; }
+for (const c of code) { const sc = TL.scenes[sceneAt(c.t)]; c.scene = sc.id; c.slide = slides.reduce((k, sl, i) => sl.t <= c.t + .01 ? i : k, 0); }
+// Practice page: practice.json {questions: [{q, a, why: [zh, en], scene?, src?: ['file:line'], run?, reasoned?}]}
+let practice = null;
+if (fs.existsSync('practice.json')) {
+  practice = JSON.parse(fs.readFileSync('practice.json', 'utf8')).questions;
+  for (const [i, q] of practice.entries()) {
+    for (const k of ['q', 'a', 'why']) if (!Array.isArray(q[k]) || q[k].length !== 2 || !q[k][0] || !q[k][1]) throw new Error(`practice.json question ${i + 1}: ${k} must be [中文, English]`);
+    if (q.scene) { const sc = TL.scenes.find(s => s.id === q.scene); if (!sc) throw new Error(`practice.json question ${i + 1}: unknown scene ${q.scene}`); q.t = sc.start; }
+  }
+}
 const pad = n => String(n).padStart(3, '0');
 for (const [i, sl] of slides.entries()) { fs.writeFileSync(`slides/${pad(i + 1)}.jpg`, Buffer.from(sl.img.split(',')[1], 'base64')); sl.img = `slides/${pad(i + 1)}.jpg`; }
-const data = {total: TL.total, chapters: TL.scenes.map((s, i) => ({id: s.id, n: i, title: s.title, zh: s.zh, t: s.start})), slides};
+const data = {total: TL.total, chapters: TL.scenes.map((s, i) => ({id: s.id, n: i, title: s.title, zh: s.zh, t: s.start})), slides, code, practice};
 fs.writeFileSync('slides.json', JSON.stringify(data, null, 1));
 fs.writeFileSync('slides.html', fs.readFileSync('slides_page.html', 'utf8').replace('/*SLIDES*/null', JSON.stringify(data)));
 if (PDF) {
@@ -53,6 +84,6 @@ if (PDF) {
   await p.pdf({path: 'slides.pdf', format: 'A4', landscape: true, printBackground: true, preferCSSPageSize: true});
 }
 const beats = TL.scenes.reduce((n, s) => n + s.beats.length, 0);
-console.log(`${slides.length} slides from ${beats} beats (min-diff ${MIN_DIFF})` + (PDF ? ' → slides.html + slides.pdf' : ' → slides.html'));
+console.log(`${slides.length} slides from ${beats} beats (min-diff ${MIN_DIFF}), ${code.length} code excerpts, ${practice ? practice.length + ' practice questions' : 'no practice.json'}` + (PDF ? ' → slides.html + slides.pdf' : ' → slides.html'));
 console.log(errs.length ? 'ERRORS:\n' + [...new Set(errs)].join('\n') : 'no page errors');
 await b.close();

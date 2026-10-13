@@ -273,9 +273,13 @@ function gear(x, y, r, teeth, rot, color, o = {}) {
   if (o.mark) { const q = {x: x + r * .78 * Math.cos(rot), y: y + r * .78 * Math.sin(rot)}; ctx.fillStyle = C.gold; ctx.beginPath(); ctx.arc(q.x, q.y, Math.max(7, r * .06), 0, Math.PI * 2); ctx.fill(); }
   ctx.restore();
 }
+// Every code pane reports itself while it is on screen: slides.mjs collects these into the 课件's code index.
+// A helper that draws real source calls codeShown({file, a, b, fn?, key?}) (lines a–b of the file); codeBox reports its title.
+const codeShown = info => { if (window.__codeSink) window.__codeSink(info); };
 // code panel; lines: [text, color?]; hl(i) → highlight 0..1, mark(i) → [glyph, color, alpha]
 function codeBox(x, y, w, title, lines, o = {}) {
   const lh = 50, h = 90 + lines.length * lh, a = o.alpha ?? 1; if (a <= 0) return;
+  if (a > .5) codeShown({title, file: o.file, a: o.from, b: o.to});
   panel(x + w / 2, y + h / 2, w, h, {alpha: a, fill: '#0E1628'});
   ctx.save(); ctx.globalAlpha *= a;
   [C.red, C.gold, C.mint].forEach((c, i) => { ctx.fillStyle = rgba(c, .7); ctx.beginPath(); ctx.arc(x + 30 + i * 26, y + 32, 7, 0, Math.PI * 2); ctx.fill(); });
