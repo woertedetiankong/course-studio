@@ -49,6 +49,19 @@ Depth is never cut; it is made followable. Learned on robot-course ep11: a 10-mi
 - **When to split — decide after reading the episode's code, never from the title alone** (robot-course ep11 looked like one episode until `drv_encoder.c` showed six types, different check policies and five measured pitfalls). Split when (1) the running example needs more than ~9 stops, (2) there are parallel variants (protocols, modes, identifications) — they get their own "differences" part, (3) real runs turn up 3 or more pitfalls — they get their own "what goes wrong" part. Show the user the stop list and the split before producing anything. Keep episode numbers stable; parts are `NNa/NNb/NNc`. A course plan may carry a pre-reading estimate (robot-course `plan.py` `PARTS`), marked as an estimate.
 - **Splitting a dense topic:** part A = the main path with one example, done thoroughly; part B = the variants, each shown only as its *difference* from part A, stop by stop; part C = what goes wrong (checks, error paths, pitfalls from real runs), each pitfall guess-first. Part B and C reuse part A's stop strip.
 
+## Video-first courses: the video is the whole course
+
+When a course drops the lab and the atlas (SKILL.md, "Video-first courses"; robot-course since 2026-10-13), the video and its 课件 take over their jobs. Density rules don't change: one mechanism and one running example per video, about 10–15 minutes; the extra material makes **more parts**, never longer videos.
+
+| The lab / map used to give | Now carried by |
+|---|---|
+| Many real-run cases (a table of faults, a sweep of loads) | A **case-tour part** when 4+ cases are worth seeing: pick 4–6, each guess-first then the real run, reusing part A's stop strip. The full table of measured values goes into the 课件. |
+| Where the code lives, how modules connect | A **"you are here" strip** on every scene with code: the layer / module and the file, alongside the call-stack breadcrumb. Plus a **section-recap part** at the end of each section of the course: the modules and call chains taught so far on one picture. |
+| Predict-then-verify questions | **4–6 guess-first pauses** per video (instead of 2–4), each answered by a real run. |
+| Trying it yourself | **"Your turn"** ends with the exact repro command from the episode's `data/runs.sh` and what the learner should see. |
+
+Only real runs, as before: every number on screen comes from the harness; anything worked out from the code is labelled as such. Keep the guess-first and practice questions (with answers and the source line or run they rest on) in the 课件. They also seed a later AI voice dialogue, where the learner explains the episode back.
+
 ### Scene skeleton for `practitioner` (adapt, don't pad)
 | # | Scene | ~s |
 |---|---|---|
@@ -139,6 +152,7 @@ After recording, `node slides.mjs` (≈ 20 s) turns the video into a handout: it
 - `slides.html` (from `slides_page.html`, Bento, 中 / EN): chapters as a sticky chip row, each slide a tile with the screenshot (click to enlarge) and its narration, a `▶ m:ss` link that opens the course home at `#epNN@seconds` and plays the video from there (only when served by the site).
 - `slides.pdf`: A4 landscape, one slide per page, notes in both languages — for printing or reading offline. `--no-pdf` skips it.
 - Read the contact sheet before shipping: `cd slides && ffmpeg -framerate 1 -i %03d.jpg -vf "scale=480:-1,tile=5x8" -frames:v 1 ../sheet.jpg`. Too many near-repeats → raise `--min-diff`; a slide missing something that was on screen briefly → lower it.
+- In a video-first course the 课件 also ends with a **code index** (every excerpt shown, in order of appearance: `file:line`, function, one line on what it does) and a **practice page** (the video's guess-first questions plus 2–3 new ones, each with its answer and the source line or real run it rests on; for a case tour, the full table of measured cases). `slides.mjs` does not generate these yet; add them to the template when the first video-first episode is made.
 - Re-run it whenever the video is re-rendered (it reads `index.html` and `timeline.json`, so it always matches the current video).
 - Episodes made before this existed: copy `slides.mjs` and `slides_page.html` from `template/episode/` (fill the `__EP_…__` / `__COURSE_…__` placeholders in the page by hand), and add the `NOSUBS` guard from the template's `tail.html` to the episode's `tail.html`, then `build.py`.
 
