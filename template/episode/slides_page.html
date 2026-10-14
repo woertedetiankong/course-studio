@@ -33,7 +33,7 @@ const PRINT = location.search.includes('print');
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-body{margin:0; background:var(--bg); color:var(--ink); font:15px/1.6 var(--f-sans); -webkit-font-smoothing:antialiased}
+body{margin:0; background:var(--bg); color:var(--ink); font:15px/1.6 var(--f-sans); -webkit-font-smoothing:antialiased; overflow-wrap:anywhere}  /* long identifiers (CURRENT_CTL_CONFIG_PWM_DUTY_CYCLE_MAX) must not widen the page at phone width */
 .wrap{max-width:1320px; margin:0 auto; padding-inline:20px; padding-block:36px 72px; display:flex; flex-direction:column; gap:28px}
 h1,h2,h3{margin:0; text-wrap:balance}
 p{margin:0}
