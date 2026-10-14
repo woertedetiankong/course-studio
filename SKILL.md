@@ -113,7 +113,7 @@ All web UI (home, dojo, lab pages) uses the **Bento minimal** style, except the 
 
 **Audience is a per-course setting: `COURSE_META.audience` in `course.js`** (`new_course.py --audience`). Read it before outlining or scripting any episode, and follow the matching profile in `references/video.md` ("Audience profiles"); `tts.py` picks its voice style from it too.
 - `beginner` (default): weak foundation. Explain from an everyday analogy, define each term in plain words the first time, one new idea per line, ask-then-answer, show it failing before the fix, recap midway and at the end.
-- `practitioner`: engineers who know the field and want to master *this* codebase. Skip textbook basics (one line at most); animate what reading the code can't show (timing, data flow, state machines, model ↔ generated code, real waveforms); real source is the main subject (40–50 % of the video); each scene runs problem → mechanism → source → evidence → pitfall; few analogies.
+- `practitioner`: engineers who know the field and want to master *this* codebase. Skip textbook basics (one line at most); animate what reading the code can't show (timing, data flow, state machines, model ↔ generated code, real waveforms); real source is the main subject (40–50 % of the video); each scene runs problem → mechanism → source → evidence → pitfall; analogies only for concepts new to them (often comms, layering, tooling), each landing straight on the running example.
 If a course predates the setting (no `audience` in `COURSE_META`), it is `beginner` unless the user or the course's plan says otherwise — then add the field.
 
 ## Reference files
