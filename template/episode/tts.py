@@ -7,8 +7,7 @@ timeline.json gives every scene its start/duration and every beat (line) its sta
 scenes.js uses to time animations and sync_content.py turns into video chapters.
 
 Config, first match wins: environment → nearest .env above this folder → ~/.config/course-studio/.env.
-Keys: GEMINI_API_KEY (required), GEMINI_TTS_MODEL, GEMINI_VOICE, GEMINI_TTS_STYLE (default: picked by the course audience,
-COURSE_AUDIENCE or COURSE_META.audience in the course's site/web/js/course.js: beginner | practitioner),
+Keys: GEMINI_API_KEY (required), GEMINI_TTS_MODEL, GEMINI_VOICE, GEMINI_TTS_STYLE (default: a senior engineer talking to a peer),
 GEMINI_CHECK_MODEL (transcribes every new clip to catch the TTS reading the style notes aloud; 'off' to skip).
 No key yet, or just previewing the look? Use silent_timeline.py instead — same outputs, silent audio.
 """
@@ -34,24 +33,8 @@ KEY = KEYS[0] if KEYS else None
 if not KEY: raise SystemExit(f'GEMINI_API_KEY not found: put it in {GLOBAL_ENV}, the course root .env, or the environment')
 MODEL = cfg('GEMINI_TTS_MODEL', 'gemini-3.8-flash-tts')
 VOICE = cfg('GEMINI_VOICE', 'Sulafat')  # warm; alternatives: Achird (friendly), Kore (firm), Charon (informative)
-def course_audience():  # COURSE_AUDIENCE, else audience: '…' in the nearest site/web/js/course.js above this folder
-    if cfg('COURSE_AUDIENCE'): return cfg('COURSE_AUDIENCE')
-    d = os.path.abspath('.')
-    while d != os.path.dirname(d):
-        p = os.path.join(d, 'site', 'web', 'js', 'course.js')
-        if os.path.exists(p):
-            m = re.search(r"\baudience:\s*['\"](\w+)['\"]", open(p, encoding='utf-8').read())
-            return m.group(1) if m else 'beginner'
-        d = os.path.dirname(d)
-    return 'beginner'
-STYLES = {
-    'beginner': 'a warm, patient teacher explaining to a complete beginner; calm, unhurried pace, '
-                'friendly and clear, gentle emphasis on key words',
-    'practitioner': 'a clear, confident senior engineer explaining to a fellow engineer; natural, brisk but unhurried pace, '
-                    'precise, light emphasis on names and numbers',
-}
-AUDIENCE = course_audience()
-STYLE = cfg('GEMINI_TTS_STYLE') or STYLES.get(AUDIENCE, STYLES['beginner'])
+STYLE = cfg('GEMINI_TTS_STYLE') or ('a clear, confident senior engineer explaining to a fellow engineer; natural, '
+                                     'brisk but unhurried pace, precise, light emphasis on names and numbers')
 CHECK_MODEL = cfg('GEMINI_CHECK_MODEL', 'gemini-3.8-flash')
 os.makedirs('audio', exist_ok=True)
 
@@ -92,7 +75,7 @@ def request(body):
 
 words = lambda x: [w for w in re.sub(r"[^a-z ]", ' ', x.lower()).split() if len(w) >= 4]
 def heard_right(path, text):
-    # The TTS model sometimes reads the director's notes aloud ("...a complete beginner, calm, unhurried pace...")
+    # The TTS model sometimes reads the director's notes aloud ("...to a fellow engineer, natural, brisk but unhurried pace...")
     # while staying under the length limit, so listen back: transcribe the clip and compare the words.
     if CHECK_MODEL == 'off': return True
     body = json.dumps({'contents': [{'parts': [

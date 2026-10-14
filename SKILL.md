@@ -9,7 +9,7 @@ A course is a series of **episodes**. Each episode teaches one core mechanism in
 
 | Step | What it is | Built from |
 |---|---|---|
-| 1 看视频 | 3Blue1Brown-style canvas animation pitched at the course's audience, no length cap (one mechanism, one running example; dense topics split into parts), Gemini-TTS narration, bilingual subtitles, chapters; plus its **课件** (slides: the video's screenshots with the narration beside each, as a page and a PDF) | `episode/` kit: `script.json` + `scenes.js` → `tts.py` (or `silent_timeline.py`) → `build.py` → `record.mjs` → `slides.mjs` |
+| 1 看视频 | 3Blue1Brown-style canvas animation pitched at engineers, no length cap (one mechanism, one running example; dense topics split into parts), Gemini-TTS narration, bilingual subtitles, chapters; plus its **课件** (slides: the video's screenshots with the narration beside each, as a page and a PDF) | `episode/` kit: `script.json` + `scenes.js` → `tts.py` (or `silent_timeline.py`) → `build.py` → `record.mjs` → `slides.mjs` |
 | 2 读材料 | Paper / textbook chapter, what to read closely, questions to answer | data in `course.js` |
 | 3 玩实验台 | Interactive bench: break things, predict-then-verify questions. Numbers come from a JS simulator, or from replayed runs of the real code (troubleshooting benches included) | `episode/lab.html` (+ `episode/lab_data.py` for replay) |
 | 4 练功房 | Write real code level by level in the course's language; real tests, targeted hints, timeline | dojo: `course/dojos/<id>/` + `web/js/dojos/<id>.js` |
@@ -59,7 +59,7 @@ The MIT reference instance predates the template: its runner is the old Go `main
 
 ### A. New course
 1. Agree on: course title/subtitle, source course + its schedule, episode list (one mechanism each, mapped to the original labs), and the dojo language — the one the original labs use, or the one the learner wants to practise (go, typescript, python, rust; anything else needs a new driver first, see `references/dojo.md`). Write the full episode list into `course.js` up front as `planned` — the course map is motivating even when mostly empty.
-2. Scaffold: `python3 <skill>/scripts/new_course.py --root <dir> --lang <go|typescript|python|rust> --title … --subtitle … --title-en … --subtitle-en … --ep1 "<title>" --ep1-en "<English title>" [--slug …] [--port …] [--audience beginner|practitioner]`. Fill `course.en.js` for every planned episode too (title, group). It copies `template/site` plus the language pack, creates `episodes/ep01-<slug>/`, and prints the next commands. Run `npm run check` in `site/` once: the warm-up must be all ✓ (this also proves the toolchain works on this machine).
+2. Scaffold: `python3 <skill>/scripts/new_course.py --root <dir> --lang <go|typescript|python|rust> --title … --subtitle … --title-en … --subtitle-en … --ep1 "<title>" --ep1-en "<English title>" [--slug …] [--port …]`. Fill `course.en.js` for every planned episode too (title, group). It copies `template/site` plus the language pack, creates `episodes/ep01-<slug>/`, and prints the next commands. Run `npm run check` in `site/` once: the warm-up must be all ✓ (this also proves the toolchain works on this machine).
 3. Replace the sample `warmup` dojo when the first real dojo exists (or keep it as an optional warm-up in the course's language).
 4. Then produce episode 1 with workflow B.
 
@@ -111,10 +111,7 @@ Write English as plain, natural English (not a word-for-word rendering): short s
 
 All web UI (home, dojo, lab pages) uses the **Bento minimal** style, except the project atlas, which has its own drafting-sheet / blueprint look (`references/atlas.md`, "Look") — read `references/style-bento.md` before writing or restyling any page. The tokens are already in `template/site/web/css/style.css` and the lab skeleton; reuse them rather than inventing new colors. The video is different on purpose: it follows **3Blue1Brown style** — dark canvas, meaning-coded colours, formulas built term by term from pictures, continuous motion, worked numbers — defined in `episode/head.html` and described in `references/video.md`. Video frames are not UI.
 
-**Audience is a per-course setting: `COURSE_META.audience` in `course.js`** (`new_course.py --audience`). Read it before outlining or scripting any episode, and follow the matching profile in `references/video.md` ("Audience profiles"); `tts.py` picks its voice style from it too.
-- `beginner` (default): weak foundation. Explain from an everyday analogy, define each term in plain words the first time, one new idea per line, ask-then-answer, show it failing before the fix, recap midway and at the end.
-- `practitioner`: engineers who know the field and want to master *this* codebase. Skip textbook basics (one line at most); animate what reading the code can't show (timing, data flow, state machines, model ↔ generated code, real waveforms); real source is the main subject (40–50 % of the video); each scene runs problem → mechanism → source → evidence → pitfall; an analogy wherever a fitting one exists (their backgrounds vary), each landing straight on the running example, none when nothing fits.
-If a course predates the setting (no `audience` in `COURSE_META`), it is `beginner` unless the user or the course's plan says otherwise — then add the field.
+**Audience: engineers, in every course** (`references/video.md`, "Who the videos are for"): they want to master *this* codebase, and their backgrounds in its field vary. Skip textbook basics (one line at most); animate what reading the code can't show (timing, data flow, state machines, model ↔ generated code, real waveforms); real source is the main subject (40–50 % of the video); each scene runs problem → mechanism → source → evidence → pitfall; an analogy wherever a fitting one exists (their backgrounds vary), each landing straight on the running example, none when nothing fits.
 
 ## Reference files
 - `references/style-bento.md` — tokens, components, layout rules, dark mode, do/don't

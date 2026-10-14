@@ -58,7 +58,6 @@ def main():
     ap.add_argument("--ep1-en", help="English title of episode 1")
     ap.add_argument("--slug", help="folder slug for episode 1 (default: from --ep1)")
     ap.add_argument("--port", default="7878")
-    ap.add_argument("--audience", default="beginner", choices=["beginner", "practitioner"], help="who the videos are pitched at (COURSE_META.audience); see references/video.md")
     a = ap.parse_args()
     root = os.path.abspath(os.path.expanduser(a.root))
     site = os.path.join(root, "site")
@@ -75,7 +74,7 @@ def main():
     subs = {"__COURSE_TITLE_EN__": a.title_en or a.title, "__COURSE_SUBTITLE_EN__": a.subtitle_en or a.subtitle,
             "__EP01_TITLE_EN__": a.ep1_en or a.ep1,
             "__COURSE_TITLE__": a.title, "__COURSE_SUBTITLE__": a.subtitle,
-            "__PORT__": a.port, "__EP01_TITLE__": a.ep1, "__AUDIENCE__": a.audience,
+            "__PORT__": a.port, "__EP01_TITLE__": a.ep1,
             "__DOJO_DESC_EN__": pack["dojoDesc_en"], "__DOJO_DESC__": pack["dojoDesc_zh"],
             "__INSTALL_EN__": pack["install_en"], "__INSTALL__": pack["install_zh"],
             "__WORKSPACE_EN__": pack["workspace_en"], "__WORKSPACE__": pack["workspace_zh"]}

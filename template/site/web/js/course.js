@@ -20,7 +20,6 @@ window.COURSE_META = {
   mapNote: '按原课程的课表顺序排列，一集讲清一个核心机制。',
   footer: '论文和作业链接指向原课程官网。这里的视频、实验台和练功房是自学用的辅助材料，题目和测试均为原创。',
   atlas: false,   // true = 课程有项目地图（web/atlas.html + js/atlas.data.js），首页顶部显示入口
-  audience: '__AUDIENCE__',   // 'beginner' 基础弱的初学者 | 'practitioner' 想吃透项目的从业者：决定视频讲法和配音风格（references/video.md）
 };
 
 window.EPISODES = [

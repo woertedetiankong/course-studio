@@ -13,36 +13,36 @@ timeline.json ──site/dev/sync_content.py──▶ content/epNN/chapters.json
 
 ## Defaults: what every episode video is
 
-- **Audience: whatever the course declares** in `COURSE_META.audience` (`beginner` by default, or `practitioner`). See "Audience profiles" below; it changes what the animation is for, how much code is shown, the narration voice and the scene skeleton. Everything else on this page applies to both.
+- **Audience: engineers.** Every course made with this skill is for engineers who want to master a real codebase or system; their backgrounds vary. See "Who the videos are for" below.
 - **Length: no cap — as long as the mechanism needs to be learned, and no padding.** What limits a video is *density*, not minutes: one mechanism and one running example per video. Whether a topic becomes one video or several parts (`11a`, `11b`, `11c` …, each with its own running example) is your call after reading its code. For reference, robot-course videos ran from 4 minutes (11d) to 19 (11b); most were 10–15. These numbers describe what was made; they are not targets. See "Hardcore and learnable" below.
 - **Style: 3Blue1Brown** (below). The canvas palette in `head.html` is already dark with bright meaning-coded colours; use it.
 - **Narration: English via Gemini TTS, bilingual subtitles.** Subtitles carry the Chinese, so one video serves both UI languages.
 - **Preview before narrating.** When the user wants to see the look first, or asks for no voice, run `silent_timeline.py` instead of `tts.py` and render; switch to `tts.py` later, everything else stays the same.
 
-## Audience profiles
+## Who the videos are for
 
-| | `beginner` (default) | `practitioner` |
-|---|---|---|
-| Who | weak foundation; high-school maths, nothing about the field | engineers in the field who want to master *this* codebase |
-| Animation is for | building intuition for the concept | showing what reading the code can't: timing (who interrupts whom, in what order), data flow across files, state machines side by side, model ↔ generated code, real waveforms before/after a change |
-| Basics | explained from an everyday analogy, each term defined | one line at most; an analogy wherever a fitting one exists (see "Analogies" below) |
-| Code | last, simplified, ~10 % of the video | the main subject, 40–50 %: real paths, function and variable names, cut lines marked `…` |
-| Scene arc | picture → name → symbol → formula → numbers | problem (why it exists) → mechanism animation → source walkthrough → evidence (a real run, real numbers) → pitfall / design trade-off |
-| "Understandable" means | "now I get the idea" | "so *that's* what this code does" — clear, not shallow |
-| Voice (`tts.py`) | warm, patient teacher, unhurried | clear, confident senior engineer talking to a peer, brisk but unhurried |
+| | |
+|---|---|
+| Who | engineers who want to master *this* codebase or system; some have deep backgrounds in its field, some shallow |
+| Animation is for | showing what reading the code can't: timing (who interrupts whom, in what order), data flow across files, state machines side by side, model ↔ generated code, real waveforms before/after a change |
+| Basics | one line at most; an analogy wherever a fitting one exists (see "Analogies" below) |
+| Code | the main subject, 40–50 %: real paths, function and variable names, cut lines marked `…` |
+| Scene arc | problem (why it exists) → mechanism animation → source walkthrough → evidence (a real run, real numbers) → pitfall / design trade-off |
+| "Understandable" means | "so *that's* what this code does" — clear, not shallow |
+| Voice (`tts.py`) | clear, confident senior engineer talking to a peer, brisk but unhurried |
 
-Real evidence beats illustration for practitioners: when the course has a runnable target (a simulator, the real tests), plot data from actual runs and quote measured numbers — and sample fast enough not to miss the transient you are describing.
+Real evidence beats illustration: when the course has a runnable target (a simulator, the real tests), plot data from actual runs and quote measured numbers — and sample fast enough not to miss the transient you are describing.
 
 ## Hardcore and learnable (the default teaching pattern)
 
-Depth is never cut; it is made followable. Learned on robot-course ep11: its first version, made before this pattern existed, put four encoder protocols, their checks and six pitfalls into one 10-minute video; it was correct but "too hard". the remake (ep11a: one protocol, one real frame followed end to end, 12 minutes) was understood on first viewing. Apply this to every audience; for `practitioner` it is how the 40–50 % code share gets absorbed.
+Depth is never cut; it is made followable. Learned on robot-course ep11: its first version, made before this pattern existed, put four encoder protocols, their checks and six pitfalls into one 10-minute video; it was correct but "too hard". the remake (ep11a: one protocol, one real frame followed end to end, 12 minutes) was understood on first viewing. It is how the 40–50 % code share gets absorbed.
 
 - **One running example, carried end to end.** Pick one concrete input from a real run (a frame `02 00 3C 99 00 A7`, a CAN write of 262144, a step of 0.1 N·m) and follow it through every stage until it becomes the output (178.71°). The same numbers appear in every scene. Never switch examples mid-episode except for a "what if it breaks" contrast, and say so.
 - **A stop strip.** Number the stages in an early "the journey" scene and keep a thin strip under the chapter title showing the current stop (ep11a `stopBar`, ep36 `routeBar`). The viewer always knows where they are.
 - **Each step in three beats, same numbers:** (1) do it by hand on screen — the arithmetic written out (`02 ⊕ 3C = 3E`, `60 + 39168 = 39228`); (2) the real source, at most 3 lines lit at a time, the current value written beside each line (`codeBox` `mark`); (3) the real run printing the same value. Code never appears before the picture it implements.
 - **Code on screen is the real code, located and in call order** (robot-course ep11a learner: "代码不要简写，逻辑要连贯，看完知道代码在哪"). (1) Verbatim: the lines exactly as in the file — same identifiers (`enc_data->uart_handle`, not `uart`), same macros, same comments; never substitute values into the code, write them beside it (`mark`). Cut excerpts from the repo by line range at build time (like `lab_data.py`) so they can't drift. (2) Located: real line numbers in a gutter and `path/file.c · L615–628 · Function()` as the box title. (3) Continuous: walk the code in the order the CPU runs it — ISR → caller → function-pointer target → back to the caller → next call — with a call-stack breadcrumb on screen (`board.c:229 EncoderDataRead() › drv_encoder.c:202 .read › :615 TAMAGAWA_Encoder_Data_Read()`) that grows on each call and shrinks on return. Draw source in a font without ligatures (Menlo/Consolas): JetBrains Mono turns `->` and `!=` into → and ≠, which no longer matches the file. Never jump to a later function without showing the call that gets there; when lines inside a function are skipped, show an explicit `… L640–646: what they do` row instead of silently dropping them.
 - **Few new names per scene.** A new identifier gets one plain-language line the first time ("data_raw — the driver's own copy"). When a scene introduces so many that the viewer can't hold them (ep11a kept it to about three), split the scene.
-- **Analogies wherever a fitting one exists**, decided by fit, not by guessing what the audience already knows: one audience mixes deep and shallow backgrounds (robot-course: motor-control engineers, some of whom tune current loops daily and some who don't), and a fitting line costs the strong viewer a few seconds while it carries the weak one. *Fitting* means accurate on the point being taught, with a known place where it stops holding. No fitting analogy → none; teach straight from the running example, never force one, since a wrong picture is worse than no picture. Often fitting: timing and concurrency (ep11a: DMA = posting a letter with a reply envelope, read at the next visit), layering, addressing and protocol roles (CANopen's object dictionary = numbered shelves, `0x607A` the shelf and `:00` the slot; SDO vs PDO = a phone call that waits for an answer vs a newspaper delivered on schedule; EtherCAT SYNC0 = one starting pistol for the whole team). For maths mechanisms (observers, input shapers) draw what it does from a real run's waveforms first (raw differentiated speed beside the observer's; a step with and without shaping) and let the analogy only open it (an input shaper = a second push on a swing, timed to cancel the sway). How many per episode is your judgment.
+- **Analogies wherever a fitting one exists**, decided by fit, not by guessing what the audience already knows: one audience of engineers mixes deep and shallow backgrounds (robot-course: motor-control engineers, some of whom tune current loops daily and some who don't), and a fitting line costs the strong viewer a few seconds while it carries the weak one. *Fitting* means accurate on the point being taught, with a known place where it stops holding. No fitting analogy → none; teach straight from the running example, never force one, since a wrong picture is worse than no picture. Often fitting: timing and concurrency (ep11a: DMA = posting a letter with a reply envelope, read at the next visit), layering, addressing and protocol roles (CANopen's object dictionary = numbered shelves, `0x607A` the shelf and `:00` the slot; SDO vs PDO = a phone call that waits for an answer vs a newspaper delivered on schedule; EtherCAT SYNC0 = one starting pistol for the whole team). For maths mechanisms (observers, input shapers) draw what it does from a real run's waveforms first (raw differentiated speed beside the observer's; a step with and without shaping) and let the analogy only open it (an input shaper = a second push on a swing, timed to cancel the sway). How many per episode is your judgment.
   - **The analogy opens, the running example teaches.** Say it in one or two lines, then land on the running example's real numbers in the same scene (shelf `0x607A` → the bytes `7A 60 00` in the frame on screen). Never build a scene on the analogy alone, and don't carry it past where it fits; say where it breaks if a viewer would otherwise be misled.
 - **Guess first**, wherever the viewer can genuinely predict something (ep11a had two plus its "your turn"; ep11c asked one at almost every stop): pose the question on a card, hold (`"pause"` as the 4th element of the line in `script.json` adds 2 s of silence in `tts.py` and `silent_timeline.py`), then answer with the real run. Clear the card fully before the answer's picture fades in.
 - **"So far" when a lot has piled up** (three cards; ep11a had one every five or six scenes), a final recap, then a "your turn" that hands the viewer a *new* real input to work by hand, pauses, and shows the answer and the real run.
@@ -63,7 +63,7 @@ When a course drops the lab and the atlas (SKILL.md, "Video-first courses"; robo
 
 Only real runs, as before: every number on screen comes from the harness; anything worked out from the code is labelled as such. Keep the guess-first and practice questions (with answers and the source line or run they rest on) in the 课件. They also seed a later AI voice dialogue, where the learner explains the episode back.
 
-### Scene skeleton for `practitioner` (adapt, don't pad)
+### Scene skeleton (adapt, don't pad)
 | # | Scene | ~s |
 |---|---|---|
 | 0 | Intro: what in the codebase you'll be able to read after this | 15 |
@@ -77,8 +77,6 @@ Only real runs, as before: every number on screen comes from the harness; anythi
 | 16 | Recap: three things to remember | 25 |
 | 17 | Your turn: a change to make and predict | 20 |
 
-The beginner sections below ("Narration", the beginner skeleton) still apply to `beginner` courses as written; for `practitioner` keep their mechanics (≤ 20 words a line, ask-pause-answer, recap) but drop the analogy-first and define-everything rules.
-
 ## 3Blue1Brown style, concretely
 
 Visual
@@ -91,28 +89,13 @@ Visual
 - **Code last, verbatim, mapped back.** When the episode reads real source, show the real lines (with file and line numbers, see "Code on screen is the real code" above) in `codeBox`, highlight each line as the narration names it, and colour it with the same concept colours as the formula. Shorten by choosing fewer lines, never by rewriting them.
 
 Narration (script.json)
-- **Talk like a patient teacher sitting beside the viewer.** "you", "we", short sentences, one idea per line. ≤ 20 words per line so it fits two subtitle rows.
-- **Every new term gets defined the first time, in plain words**, in the same line or the next ("torque — how hard the motor twists").
-- **Start from something the viewer has felt** (pushing a door, a spring, a car's suspension) before any symbol.
+- **Talk like a senior engineer to a peer.** "you", "we", short sentences, one idea per line. ≤ 20 words per line so it fits two subtitle rows.
+- **A new identifier or term gets one plain line the first time** ("data_raw — the driver's own copy"); textbook basics of the field get one line at most.
+- **A fitting analogy may open a hard idea** (see "Analogies" above), then land on the running example's numbers.
 - **Ask, pause, answer.** Pose the question the viewer should be asking ("so why not just make Kp huge?"), give it a beat, then answer. A few per episode.
 - **Show it failing first.** The "what breaks without it" moment from the outline gets its own scene before the fix.
-- **Recap mid-way and at the end.** One "so far:" scene around the middle (three bullet chips), one recap scene at the end, then 1–3 think-about questions.
+- **Recap mid-way and at the end.** One "so far:" scene around the middle (three bullet chips), one recap scene at the end, then a "your turn".
 - No jargon walls, no "obviously/simply/just", no unexplained acronyms.
-
-### Scene skeleton for `beginner` (adapt, don't pad)
-| # | Scene | ~s |
-|---|---|---|
-| 0 | Intro: title + one-sentence promise of what you'll understand | 20 |
-| 1 | Hook: a real situation where this matters (robot leg landing, server crash) | 30 |
-| 2 | Everyday analogy the whole episode leans on | 35 |
-| 3–4 | The naive approach, and watching it fail | 60 |
-| 5–8 | The core mechanism, one ingredient per scene, each: picture → name → symbol | 150 |
-| 9 | "So far" mini-recap | 25 |
-| 10–12 | Putting it together; worked example with real numbers; a common misconception | 100 |
-| 13–14 | How the real system / codebase does it (simplified excerpt) | 60 |
-| 15 | Pitfall or subtle detail (units, edge case, the puzzle) | 40 |
-| 16 | Recap: three things to remember | 30 |
-| 17 | Think about / what you'll do in the lab | 25 |
 
 ## Fact-check the script against the source (before animating)
 Every claim in `script.json` about the codebase gets checked against the real source before any scene is drawn: function names and call order (grep each one and read the call site, not just the definition), which interrupt or thread runs it and at what priority, constants and units (read the `#define` and the setter that converts), what a return value means and whether the caller even reads it. Numbers on screen come from a real run when the course has a runnable target. Then re-check anything an earlier episode, the plan or the project map says about the same path: when they disagree, the source wins, and the other place gets fixed in the same pass. On robot-course ep36 this pass caught four wrong claims (where an edge was detected, which interrupt receives CAN frames, a PWM centre value, a current sign), two of them already published in episode 1's map.
@@ -122,10 +105,10 @@ Array of scenes `{id, title, zh, lines: [[english, chinese, spoken?], …]}`. `t
 - Changing any line re-synthesizes only that line (hash cache), but shifts every later time → re-run tts, build, record, sync.
 
 ## tts.py (Gemini TTS)
-Model `gemini-3.8-flash-tts` (override `GEMINI_TTS_MODEL`), voice `Sulafat` — warm (override `GEMINI_VOICE`; `Achird` friendly, `Charon` informative, `Kore` firm). Style text in `GEMINI_TTS_STYLE`; without it the style follows the course audience: `COURSE_AUDIENCE` in the environment/.env, else `audience` read from the course's `site/web/js/course.js` (`beginner`: "a warm, patient teacher explaining to a complete beginner…"; `practitioner`: "a clear, confident senior engineer explaining to a fellow engineer…"). All three can go in `~/.config/course-studio/.env` (defaults for every course) or a course-root `.env` (just this course).
+Model `gemini-3.8-flash-tts` (override `GEMINI_TTS_MODEL`), voice `Sulafat` — warm (override `GEMINI_VOICE`; `Achird` friendly, `Charon` informative, `Kore` firm). Style text in `GEMINI_TTS_STYLE` (default "a clear, confident senior engineer explaining to a fellow engineer…"). All three can go in `~/.config/course-studio/.env` (defaults for every course) or a course-root `.env` (just this course).
 - The style is sent as a `### DIRECTOR'S NOTES` header before `### TRANSCRIPT`. A plain "Say this like…:" prefix gets read aloud by this model, and `systemInstruction` is rejected — don't change that.
 - Returns 24 kHz mono WAV; 4 lines are synthesized in parallel with retries on 429/5xx. A clip longer than `3 s + 0.75 s/word` is regenerated (up to 3 tries) and then flagged with a WARNING — listen to it and reword the line (mixed-language text is the usual cause: keep `spoken` pure English).
-- **Listen-back check.** The TTS model sometimes reads the director's notes aloud mid-line ("…turned by a complete beginner, calm, unhurried pace…") and still passes the length limit. So every new clip is transcribed with `GEMINI_CHECK_MODEL` (default `gemini-3.8-flash`, `off` to skip) and regenerated on leaked style words or a clip far too long/short; the last two tries send the bare line without notes. A clip that passed gets an `audio/*.ok` marker; cached clips without one are checked once on the next run. The check costs one request per line on the text model.
+- **Listen-back check.** The TTS model sometimes reads the director's notes aloud mid-line ("…to a fellow engineer, natural, brisk but unhurried pace…") and still passes the length limit. So every new clip is transcribed with `GEMINI_CHECK_MODEL` (default `gemini-3.8-flash`, `off` to skip) and regenerated on leaked style words or a clip far too long/short; the last two tries send the bare line without notes. A clip that passed gets an `audio/*.ok` marker; cached clips without one are checked once on the next run. The check costs one request per line on the text model.
 - **Free-tier quota is 100 requests per model per day**; retries and checks count. A 110-line episode with retries can need two days on a free key — finish the rest the next day (the cache keeps finished lines).
 - Trims silence, lays lines out with LEAD 0.7 s before a scene, GAP 0.45 s between lines, TAIL 1.1 s after; writes `narration.wav`, `narration.mp3` (for the preview player) and `timeline.json`: `{total, scenes: [{id, title, zh, start, dur, beats: [{text, zh, start, dur}]}]}` (beat start is relative to the scene).
 
@@ -143,7 +126,7 @@ Same outputs as `tts.py` without any API: each line lasts `max(2.8 s, words/2.6,
 - tail.html draws the chrome: chapter number + title top-left (scenes 1…n-2), progress ticks top-right, subtitles bottom. Keep scene content between y≈160 and y≈840.
 - `build.py` collects every Chinese character in scenes.js into `EXTRA_ZH` so the font subset loads them — nothing to maintain by hand.
 - Add episode-specific helpers at the top of scenes.js (e.g. the episode's main formula as an `eq` parts builder); promote them to `head.html` in the skill's template only if they're generic.
-- Reference episodes for this style: `~/Documents/ChatGPT/robot-course/episodes/ep02-sil/` (practitioner: real SIL waveforms from `data/*.csv`, code boxes) and `ep36-one-command/` (practitioner: a 22-scene end-to-end trace, timing lanes, a route progress strip, real waveforms; `scenes.js` is concatenated from `data.js`, `scenes.head.js`, `helpers.part.js` and `scenes.body.js` by `build.sh`). `ep01-big-map/` is the beginner style (analogies).
+- Reference episodes for this style: `~/Documents/ChatGPT/robot-course/episodes/ep02-sil/` (real SIL waveforms from `data/*.csv`, code boxes) and `ep36-one-command/` (a 22-scene end-to-end trace, timing lanes, a route progress strip, real waveforms; `scenes.js` is concatenated from `data.js`, `scenes.head.js`, `helpers.part.js` and `scenes.body.js` by `build.sh`).
 
 ## Checking before recording
 `node frames.mjs [sceneId …]` renders a frame near the end of every beat and tiles them 2×2 into `frames/sheet-*.jpg`; read the sheets and fix overlaps, off-canvas text, subtitle collisions and titles long enough to hit the progress ticks (keep a chapter `title` under ~32 characters). Recording a 10-minute episode takes ~8 minutes (≈ 40 frames/s); do it last, then pull 3–4 frames from the mp4 to confirm.

@@ -4,8 +4,7 @@
 
 ## course.js
 ```js
-window.COURSE_META = {title, subtitle, mapNote, footer, atlas? /* true = web/atlas.html exists */,
-  audience? /* 'beginner' (default) | 'practitioner' — how videos and narration are pitched, see references/video.md */};
+window.COURSE_META = {title, subtitle, mapNote, footer, atlas? /* true = web/atlas.html exists */};
 window.EPISODES = [{
   id: 'ep01', n: 1, title, group /* map grouping, e.g. 基础 / Raft */, status: 'ready'|'partial'|'planned',
   desc, steps: ['video','reading','lab','flow','map','dojo','assignment'],   // any subset, in order
