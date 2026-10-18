@@ -20,6 +20,7 @@ window.COURSE_META = {
   mapNote: '按原课程的课表顺序排列，一集讲清一个核心机制。',
   footer: '论文和作业链接指向原课程官网。这里的视频、实验台和练功房是自学用的辅助材料，题目和测试均为原创。',
   atlas: false,   // true = 课程有项目地图（web/atlas.html + js/atlas.data.js），首页顶部显示入口
+  // source: {dir: '<checkout>'},   // 课程精读的源码仓库在本仓库里的目录（固定在某个提交）；外部网站据此把代码索引链到 GitHub。没有源码仓库就不写
 };
 
 window.EPISODES = [
