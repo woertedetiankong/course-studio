@@ -66,7 +66,7 @@ When a course drops the lab and the atlas (SKILL.md, "Video-first courses"; robo
 | Predict-then-verify questions | **More guess-first pauses** than a lab-backed course would need, each answered by a real run; the 课件's practice page holds the rest. |
 | Trying it yourself | **"Your turn"** ends with the exact repro command from the episode's `data/runs.sh` and what the learner should see. |
 
-Only real runs, as before: every number on screen comes from the harness; anything worked out from the code is labelled as such. Keep the guess-first and practice questions (with answers and the source line or run they rest on) in the 课件. They also seed a later AI voice dialogue, where the learner explains the episode back.
+Only real runs, as before: every number on screen comes from the harness; anything worked out from the code is labelled as such. A `data.py` per episode runs the harness, checks every number the subtitles state (the build fails if one no longer holds) and writes `epNN_data.js` (`const D`, plus the code excerpts it cuts by line range); `build.py` includes every `*_data.js` before `scenes.js`. Reference: robot111 `episodes/ep02-one-cable-ring/data.py`. Keep the guess-first and practice questions (with answers and the source line or run they rest on) in the 课件. They also seed a later AI voice dialogue, where the learner explains the episode back.
 
 ### Scene skeleton (adapt, don't pad)
 | # | Scene | ~s |
@@ -127,7 +127,7 @@ Same outputs as `tts.py` without any API: each line lasts `max(2.8 s, words/2.6,
   - general: `text, rr, glow, dot, packet(a,b,p,color,{bend,label}), burst, cross, check, ringArc, pulse, tag, chip, panel, arrow, fileIcon, cylinder, lockIcon, server, user, hexagon, nodeCircle, wrapLines`
   - 3b1b maths: `eq(parts, cx, y, size, {left, glow, alpha})` with parts `[str, color, alpha?, sub?]` (italic serif; `sub` draws a subscript); `wipe(p, x, y, w, h, fn)`; `brace(x1, x2, y, label, color, a, dir)`; `axes(x, y0, w, h, {xl, yl, full, both})`; `plot(fn, x, y0, w, k, prog, color)`; `stepResp`; `DEG`
   - mechanics: `arm(px, py, L, θ, {ghost, color, mass, lw})` (θ CCW from +x), `tip`, `arcArrow(px, py, r, a0, a1, color)`, `springArc(px, py, r, a0, a1, color)`, `gear(x, y, r, teeth, rot, color, {mark, spokes})`
-  - text blocks: `codeBox(x, y, w, title, lines, {hl(i), mark(i), base})`, `label2(en, zh, x, y)`
+  - text blocks: `codeBox(x, y, w, title, lines, {hl(i), mark(i), base, lh, size, file, from, to})` (source lines in `F.code`, a ligature-free font; `lh` = line height, e.g. 30 to fit 14 lines), `label2(en, zh, x, y)`
 - tail.html draws the chrome: chapter number + title top-left (scenes 1…n-2), progress ticks top-right, subtitles bottom. Keep scene content between y≈160 and y≈840.
 - `build.py` collects every Chinese character in scenes.js into `EXTRA_ZH` so the font subset loads them — nothing to maintain by hand.
 - Add episode-specific helpers at the top of scenes.js (e.g. the episode's main formula as an `eq` parts builder); promote them to `head.html` in the skill's template only if they're generic.

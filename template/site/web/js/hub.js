@@ -6,11 +6,6 @@ const load = (k, d) => { try { const v = localStorage.getItem(k); return v == nu
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 const META = window.COURSE_META, EPISODES = window.EPISODES;
 
-/* ---------------- token from the runner's link ---------------- */
-let token = new URLSearchParams(location.search).get('t');
-try { if (token) sessionStorage.setItem('dojo.token', token); else token = sessionStorage.getItem('dojo.token'); } catch {}
-if (location.search) history.replaceState(null, '', location.pathname + location.hash);
-
 $('#brand').textContent = META.title; $('#sub').textContent = META.subtitle;
 langToggle($('.hub-top'));
 // the project atlas (atlas.html) is one map for the whole course; show it when the course has one
@@ -22,14 +17,12 @@ let progress = load('course.progress', {});
 const done = (ep, step) => !!(progress[ep] && progress[ep][step]);
 function setDone(ep, step, v){ progress[ep] = progress[ep] || {}; progress[ep][step] = v; save('course.progress', progress); render(); }
 
-// steps that track themselves: the lab, flowchart and atlas pages record answered questions, the dojo records passed levels
-let dojoLevels = {};   // dojo id -> level count, from the runner
+// steps that track themselves: the lab, flowchart and atlas pages record answered questions
 function autoState(ep){
   const s = {};
   if (ep.lab){ const n = load(`course.${ep.lab.page || ep.id}.lab.answered`, []).length, total = ep.lab.questions || 0; s.lab = {n, total, done: total > 0 && n >= total}; }
   if (ep.flow){ const n = load(`course.${ep.id}.flow.answered`, []).length, total = ep.flow.questions || 0; s.flow = {n, total, done: total > 0 && n >= total}; }
   if (ep.map){ const n = load(`course.${ep.map.page || ep.id}.map.answered`, []).length, total = ep.map.questions || 0; s.map = {n, total, done: total > 0 && n >= total}; }
-  if (ep.dojo){ const n = load(`dojo.${ep.dojo}.passed`, []).length, total = dojoLevels[ep.dojo] || 0; s.dojo = {n, total, done: total > 0 && n >= total}; }
   return s;
 }
 const stepDone = (ep, k, auto) => done(ep.id, k) || !!(auto[k] && auto[k].done);
@@ -117,14 +110,6 @@ function stepCard(ep, k, no, auto){
       <span class="status ${a.done ? 'ok' : a.n ? 'warn' : ''}">${L('在地图上找', 'Map questions')} ${a.n} / ${a.total}</span>
       <div class="acts"><a class="go main" href="atlas.html#${ep.id}">${L('打开项目地图', 'Open the project map')}</a>${check(ep, 'map', L('看过了', 'Done'))}</div></article>`;
   }
-  if (k === 'dojo'){
-    const a = auto.dojo;
-    return `<article class="step ${isDone ? 'done' : ''}">
-      ${head(L('练功房写代码', 'Code it in the dojo'), ep.dojoTime)}
-      <p class="what">${esc(ep.dojoDesc || '')}</p>
-      <span class="status ${a.done ? 'ok' : a.n ? 'warn' : ''}">${L(`已通过 ${a.n} / ${a.total || '?'} 关`, `Passed ${a.n} / ${a.total || '?'} levels`)}</span>
-      <div class="acts"><a class="go main" href="dojo.html?d=${encodeURIComponent(ep.dojo)}">${L('进入练功房', 'Enter the dojo')}</a>${(ep.dojoLinks || []).map(l => ext(l.url, l.label, l.note || '↗')).join('')}</div></article>`;
-  }
   if (k === 'assignment'){
     const a = ep.assignment;
     return `<article class="step ${isDone ? 'done' : ''}">
@@ -186,22 +171,6 @@ addEventListener('hashchange', () => {
   else if (e && videoEl && hashT() >= 0) seekHash(videoEl);
 });
 addEventListener('focus', () => { if (probed) render(); });
-
-/* ---------------- runner status ---------------- */
-(async () => {
-  const r = $('#runner'), t = $('#runnerText');
-  // a course without dojos needs no runner status at all
-  if (!EPISODES.some(e => (e.steps || []).includes('dojo'))){ r.hidden = true; return; }
-  if (!token){ r.className = 'runner bad'; t.textContent = L('没有口令：请用终端里打印的链接打开', 'No token: open the link printed in the terminal'); return; }
-  try {
-    const res = await fetch('/api/info', {headers: {'X-Dojo-Token': token}});
-    if (!res.ok) throw new Error(res.status);
-    const info = await res.json();
-    dojoLevels = info.dojos || {};
-    r.className = 'runner ok'; t.textContent = L('本地运行器已连接', 'Local runner connected') + ` · ${info.runtime}`;
-    if (probed) render();
-  } catch { r.className = 'runner bad'; t.textContent = L('连不上本地运行器', 'Cannot reach the local runner'); }
-})();
 
 // Videos are not in git: when an episode's video.mp4 isn't there, hide its video step
 // (an episode left with no steps shows as 制作中 / In the works). Then draw.

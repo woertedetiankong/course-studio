@@ -1,9 +1,0 @@
-{
-	"name": "TypeScript",
-	"install_zh": "只需要 Node.js 22.19 或更新的版本（运行器本身也用它）：<https://nodejs.org/>",
-	"install_en": "Only Node.js 22.19 or newer (the runner uses it too): <https://nodejs.org/>",
-	"dojoDesc_zh": "用 TypeScript 一关一关写出来，测试用 Node 自带的 node --test 运行。",
-	"dojoDesc_en": "Build it in TypeScript one level at a time; the tests run with Node’s built-in node --test.",
-	"workspace_zh": "练功房里你的代码在 `workspace/<练功房>/` 里，是真正的 `.ts` 文件，可以用 VS Code 打开 `workspace/` 编辑（自带 tsconfig）。Node 直接运行 `.ts`，只支持「可擦除」的写法：不能用 `enum` 和构造函数参数属性，导入本地文件要写 `.ts` 后缀。",
-	"workspace_en": "Your dojo code is real `.ts` files in `workspace/<dojo>/`; open `workspace/` in VS Code (a tsconfig is included). Node runs `.ts` directly but only erasable syntax: no `enum`, no constructor parameter properties, and local imports need the `.ts` extension."
-}

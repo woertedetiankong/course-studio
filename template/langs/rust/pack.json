@@ -1,9 +1,0 @@
-{
-	"name": "Rust",
-	"install_zh": "安装 Rust（自带 cargo）：<https://www.rust-lang.org/tools/install>（macOS 也可以 `brew install rust`）。每个练功房第一次编译要多等一会儿，之后会快很多。",
-	"install_en": "Install Rust (cargo included): <https://www.rust-lang.org/tools/install> (on macOS, `brew install rust` works too). Each dojo’s first build takes a while; later runs are much faster.",
-	"dojoDesc_zh": "用 Rust 一关一关写出来，测试用真正的 cargo test 运行。",
-	"dojoDesc_en": "Build it in Rust one level at a time; the tests run with the real cargo test.",
-	"workspace_zh": "练功房里你的代码在 `workspace/<练功房>/src/` 里，每个练功房是一个 Cargo 包，可以用 VS Code（rust-analyzer）打开 `workspace/<练功房>/` 编辑。",
-	"workspace_en": "Your dojo code is in `workspace/<dojo>/src/`; each dojo is a Cargo package you can open in VS Code (rust-analyzer)."
-}

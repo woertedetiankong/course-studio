@@ -30,7 +30,7 @@ var W = 1920, H = 1080;
 var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const C = {bg:'#0B1120', bg2:'#16223E', ink:'#F3EBDD', dim:'#8D98B0', faint:'#3A4766', line:'#28344F', panel:'#121B31', panel2:'#1A2642',
   sky:'#6EC8FF', coral:'#FF7A59', gold:'#FFC24B', mint:'#5EE0A8', red:'#FF4D5E', violet:'#B69CFF'};
-const F = {disp:'"Fraunces", Georgia, serif', sans:'"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif', mono:'"JetBrains Mono", Menlo, monospace', zh:'"Noto Sans SC", "PingFang SC", sans-serif'};
+const F = {disp:'"Fraunces", Georgia, serif', sans:'"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif', mono:'"JetBrains Mono", Menlo, monospace', code:'Menlo, Consolas, "DejaVu Sans Mono", monospace', zh:'"Noto Sans SC", "PingFang SC", sans-serif'};
 
 /* ---------- math ---------- */
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
@@ -277,8 +277,9 @@ function gear(x, y, r, teeth, rot, color, o = {}) {
 // A helper that draws real source calls codeShown({file, a, b, fn?, key?}) (lines a–b of the file); codeBox reports its title.
 const codeShown = info => { if (window.__codeSink) window.__codeSink(info); };
 // code panel; lines: [text, color?]; hl(i) → highlight 0..1, mark(i) → [glyph, color, alpha]
+// lines drawn in F.code (no ligatures: JetBrains Mono would show -> as → and |= as ⊨, so the code no longer matches the file); o.lh = line height
 function codeBox(x, y, w, title, lines, o = {}) {
-  const lh = 50, h = 90 + lines.length * lh, a = o.alpha ?? 1; if (a <= 0) return;
+  const lh = o.lh || 50, h = 90 + lines.length * lh, a = o.alpha ?? 1; if (a <= 0) return;
   if (a > .5) codeShown({title, file: o.file, a: o.from, b: o.to});
   panel(x + w / 2, y + h / 2, w, h, {alpha: a, fill: '#0E1628'});
   ctx.save(); ctx.globalAlpha *= a;
@@ -289,7 +290,7 @@ function codeBox(x, y, w, title, lines, o = {}) {
     const ly = y + 90 + i * lh, h1 = o.hl ? o.hl(i) : 0;
     if (h1 > 0) { ctx.save(); ctx.globalAlpha *= a * h1; rr(x + 14, ly - lh / 2 + 4, w - 28, lh - 8, 8); ctx.fillStyle = rgba(l[2] || C.gold, .14); ctx.fill(); ctx.fillStyle = l[2] || C.gold; ctx.fillRect(x + 14, ly - lh / 2 + 6, 5, lh - 12); ctx.restore(); }
     const dimmed = o.hl ? .45 + .55 * Math.max(h1, o.base ?? 0) : 1;
-    text(l[0], x + 40, ly, {size: o.size || 27, font: F.mono, weight: 500, color: l[1] || C.ink, align: 'left', alpha: a * dimmed});
+    text(l[0], x + 40, ly, {size: o.size || 27, font: F.code, weight: 500, color: l[1] || C.ink, align: 'left', alpha: a * dimmed});
     const m = o.mark && o.mark(i); if (m && m[2] > 0) text(m[0], x + w - 40, ly, {size: 30, font: F.mono, weight: 700, color: m[1], align: 'right', alpha: a * m[2]});
   });
   return h;

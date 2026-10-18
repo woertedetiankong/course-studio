@@ -1,4 +1,4 @@
-"""Copy finished episode media into content/, which the runner serves at /content/.
+"""Copy finished episode media into content/, which server.ts serves at /content/.
 
 Episode build folders live next to this repo:  ../episodes/epNN-<slug>/
   video.mp4      rendered by record.mjs           → content/epNN/video.mp4

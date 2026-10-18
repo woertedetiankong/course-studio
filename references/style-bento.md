@@ -20,7 +20,7 @@ Fonts: `Geist` (UI), `Geist Mono` (numbers, ids, eyebrows, code), `Noto Sans SC`
 - **Hints**: the one warm tile — `--warn-soft` with `--hint-edge`.
 - Segmented control (`.seg`), switch (`.switch`), sticky control bar (`.bar`) — see lab skeleton.
 
-- **Language switch** (`.lang`): a small pill with two segments 中 | EN, the active one filled with `--ink`; top-right of every page header (after the runner pill on the home and dojo, in `.hero-top` on lab pages). Every page has one.
+- **Language switch** (`.lang`): a small pill with two segments 中 | EN, the active one filled with `--ink`; top-right of every page header (at the end of the home's header, in `.hero-top` on lab pages). Every page has one.
 
 ## Rules
 - Color is reserved for **state** (ok/bad/warn/in-progress) and for categorical data that needs telling apart. Everything else is ink on white on grey.

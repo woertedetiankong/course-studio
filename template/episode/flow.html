@@ -313,7 +313,7 @@ if (EN){
 $('#langBtn').innerHTML = `<span class="${EN ? '' : 'on'}">中</span><span class="${EN ? 'on' : ''}">EN</span>`;
 $('#langBtn').addEventListener('click', () => { try { localStorage.setItem('course.lang', EN ? 'zh' : 'en'); } catch {} location.reload(); });
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const EP = 'ep__EP_NN__';                     // must match the episode id in course.js
+const EP = '__EP_ID__';                     // must match the episode id in course.js
 const VIDEO = 'video.mp4';                    // sync_content.py puts the video next to this page; links use #t=seconds
 const KIND = {hw: ['--k-hw', L('第 1 层 · 硬件', 'Layer 1 · hardware')], math: ['--k-math', L('第 2 层 · 控制算法', 'Layer 2 · control math')],
   wire: ['--k-wire', L('第 3 层 · 控制循环', 'Layer 3 · loop wiring')], app: ['--k-app', L('第 4 层 · 运动模式', 'Layer 4 · modes')],

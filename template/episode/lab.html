@@ -213,7 +213,7 @@ footer{font-size:13px; color:var(--faint); border-top:1px solid var(--edge); pad
       <li data-n="01" data-en="<b>Watch</b>build intuition"><b>看视频</b>建立直觉</li>
       <li data-n="02" data-en="<b>Read</b>the source"><b>读材料</b>原文</li>
       <li data-n="03" class="here" data-en="<b>Experiment</b>this page"><b>做实验</b>就是这一页</li>
-      <li data-n="04" data-en="<b>Write code</b>the dojo, then the real assignment"><b>写代码</b>练功房，然后真正的作业</li>
+      <li data-n="04" data-en="<b>Assignment</b>the real lab"><b>做作业</b>真正的作业</li>
     </ol>
   </header>
 
@@ -288,7 +288,7 @@ $('#langBtn').title = EN ? '切换到中文' : 'Switch to English';
 $('#langBtn').addEventListener('click', () => { try { localStorage.setItem('course.lang', EN ? 'zh' : 'en'); } catch {} location.reload(); });
 
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const EP = 'ep__EP_NN__';                       // must match the episode id in the course's course.js
+const EP = '__EP_ID__';                       // must match the episode id in the course's course.js
 const K = {WORK: 3, TIMEOUT: __TIMEOUT__};       // seconds per task, seconds before reassigning
 
 /* ---------------- engine: pure and deterministic ---------------- */

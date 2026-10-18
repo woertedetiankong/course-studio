@@ -1,7 +1,0 @@
-	warmup: {
-		no_lower: [{ "words.ts": [["text.toLowerCase().split", "text.split"], ["/[^a-z0-9]+/", "/[^a-zA-Z0-9]+/"]] }, { 1: "case" }],
-		split_spaces: [{ "words.ts": [["/[^a-z0-9]+/", "/\\s+/"]] }, { 1: "punctuation" }],
-		keep_empty: [{ "words.ts": [["if (w) counts[w]", "counts[w]"]] }, { 1: "empty" }],
-		no_tiebreak: [{ "words.ts": [["b[1] - a[1] || a[0].localeCompare(b[0])", "b[1] - a[1]"]] }, { 2: "tie_order" }],
-		no_slice: [{ "words.ts": [[".slice(0, k)", ""]] }, { 2: "too_many" }],
-	},

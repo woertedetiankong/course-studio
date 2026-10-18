@@ -2,11 +2,10 @@
 	"name": "course-site",
 	"private": true,
 	"type": "module",
-	"description": "__COURSE_TITLE__：本地运行器 / local runner",
+	"description": "__COURSE_TITLE__：本地课程网站 / the course site on this computer",
 	"license": "MIT",
 	"engines": { "node": ">=22.19.0" },
 	"scripts": {
-		"start": "node server.ts",
-		"check": "node dev/check.ts"
+		"start": "node server.ts"
 	}
 }

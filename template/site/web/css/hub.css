@@ -1,4 +1,4 @@
-/* Course home: the current episode's five steps as a bento grid, then the full course map. */
+/* Course home: the current episode's steps as a bento grid, then the full course map. */
 body.hub-body{display:block; height:auto; min-height:100%}
 .atlas-link{font:600 13px var(--f-sans); color:var(--ink); text-decoration:none; padding:6px 12px; border-radius:10px; border:1px solid var(--edge); background:var(--tile)}
 .atlas-link:hover{border-color:var(--edge-2); background:var(--soft)}
@@ -82,5 +82,4 @@ body.hub-body{display:block; height:auto; min-height:100%}
   .step.wide{grid-column:auto}
   .ep-head{grid-template-columns:minmax(0,1fr)}
   .prog{align-items:flex-start}
-  .hub-top .runner{margin-left:0}
 }

@@ -132,7 +132,7 @@ h1{font-size:clamp(32px,4.4vw,52px); font-weight:600; letter-spacing:-.03em; lin
 <body>
 <div class="wrap">
   <header class="hero">
-    <div class="hero-top"><a class="home" id="homeLink" href="../../index.html#ep__EP_NN__" hidden data-en="← Course home">← 课程首页</a><button class="lang" id="langBtn" type="button"></button></div>
+    <div class="hero-top"><a class="home" id="homeLink" href="../../index.html#__EP_ID__" hidden data-en="← Course home">← 课程首页</a><button class="lang" id="langBtn" type="button"></button></div>
     <p class="eyebrow" data-en="__COURSE_TITLE_EN__ · Episode __EP_N__ · Slides">__COURSE_TITLE__ · 第 __EP_N__ 集 · 课件</p>
     <h1 data-en="__EP_TITLE_EN__">__EP_TITLE__</h1>
     <p class="lead" id="lead"></p>
@@ -163,14 +163,14 @@ $('#toc').innerHTML = chaps.map(c => `<a href="#c-${esc(c.id)}"><span class="num
 $('#chapters').innerHTML = chaps.map(c => `<section class="chap" id="c-${esc(c.id)}">
   <header><span class="num">${String(c.n).padStart(2, '0')}</span><h2>${esc(title(c))}</h2><small>${esc(EN ? c.zh : c.title)}</small></header>
   ${c.slides.map(s => `<article class="slide" id="s-${DATA.slides.indexOf(s) + 1}"><img src="${esc(s.img)}" alt="${esc(title(c))}" loading="${PRINT ? 'eager' : 'lazy'}">
-    <div class="notes"><div class="meta"><span class="num">${String(DATA.slides.indexOf(s) + 1).padStart(3, '0')} · ${esc(title(c))}</span>${SITE ? `<a class="num" href="../../index.html#ep__EP_NN__@${Math.floor(s.t)}">▶ ${mmss(s.t)}</a>` : `<span class="num">${mmss(s.t)}</span>`}</div>
+    <div class="notes"><div class="meta"><span class="num">${String(DATA.slides.indexOf(s) + 1).padStart(3, '0')} · ${esc(title(c))}</span>${SITE ? `<a class="num" href="../../index.html#__EP_ID__@${Math.floor(s.t)}">▶ ${mmss(s.t)}</a>` : `<span class="num">${mmss(s.t)}</span>`}</div>
       ${s.lines.map(([en, zh]) => `<div class="line"><div class="a">${esc(EN ? en : zh)}</div><div class="b">${esc(EN ? zh : en)}</div></div>`).join('')}</div></article>`).join('')}
 </section>`).join('');
 // in print (the PDF) labels carry both languages, like the slide notes
 const L2 = (zh, en) => PRINT ? (zh && en ? `${zh} · ${en}` : zh || en) : L(zh, en);
 // code index: every code pane of the video, in order of appearance
 const chapOf = id => DATA.chapters.find(c => c.id === id);
-const play = t => SITE ? `<a href="../../index.html#ep__EP_NN__@${Math.floor(t)}">▶ ${mmss(t)}</a>` : `<span class="num">${mmss(t)}</span> `;
+const play = t => SITE ? `<a href="../../index.html#__EP_ID__@${Math.floor(t)}">▶ ${mmss(t)}</a>` : `<span class="num">${mmss(t)}</span> `;
 if (DATA.code && DATA.code.length) {
   const loc = c => { if (!c.file) return `<b>${esc(c.title)}</b>`; const i = c.file.lastIndexOf('/') + 1;
     return `${esc(c.file.slice(0, i))}<b>${esc(c.file.slice(i))}</b>${c.a ? ` · L${c.a}${c.b && c.b !== c.a ? '–' + c.b : ''}` : ''}`; };

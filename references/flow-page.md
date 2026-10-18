@@ -1,6 +1,6 @@
 # Flowchart page (看流程图)
 
-For learners who can't read code yet. It replaces the dojo in courses made with `--lang none` (and can sit beside a dojo in any course). Agreed with the user on the robot-course (ServoHub) episode 1: the code is there for those who want it, folded away; the diagram and plain words carry the lesson.
+For learners who can't read code yet: an episode step (`flow`) beside the video and the lab. Agreed with the user on the robot-course (ServoHub) episode 1: the code is there for those who want it, folded away; the diagram and plain words carry the lesson.
 
 Start from `template/episode/flow.html` (copied into every episode by `new_episode.py`). Its sample data is ServoHub episode 1 — `~/Documents/ChatGPT/robot-course/episodes/ep01-big-map/flow.html` is the reference instance.
 
@@ -15,8 +15,8 @@ Start from `template/episode/flow.html` (copied into every episode by `new_episo
 4. **想一想**: one question per diagram. Answering marks right/wrong, explains, and offers **在图里看** which switches tab and selects the relevant box.
 5. **Footer**: source repo + commit; say the diagrams leave out detail on purpose.
 
-## Courses without dojos
-`new_course.py --lang none` sets episode 1 to video → reading → lab → flow and the home page hides the runner pill, but `site/README*.md` still describe dojos: rewrite them for the four-step course (reference: `~/Documents/ChatGPT/robot-course/site/README.md`). The server still prints a code-folder line on start; ignore it.
+## Adding it to an episode
+Add `'flow'` to the episode's `steps` in `course.js` and `flow: {questions, desc, time}` (English in `course.en.js`); `new_course.py` starts episode 1 without it.
 
 ## Data
 ```js

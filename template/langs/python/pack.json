@@ -1,9 +1,0 @@
-{
-	"name": "Python",
-	"install_zh": "安装 Python 3.9 或更新的版本：<https://www.python.org/downloads/>（macOS 也可以 `brew install python`）。第一次启动时，运行器会在 `workspace/.venv` 里建一个独立的虚拟环境并装好 pytest，不影响系统里的 Python。",
-	"install_en": "Install Python 3.9 or newer: <https://www.python.org/downloads/> (on macOS, `brew install python` works too). On first start the runner creates a private virtual environment in `workspace/.venv` with pytest; your system Python is left alone.",
-	"dojoDesc_zh": "用 Python 一关一关写出来，测试用真正的 pytest 运行。",
-	"dojoDesc_en": "Build it in Python one level at a time; the tests run with the real pytest.",
-	"workspace_zh": "练功房里你的代码在 `workspace/<练功房>/` 里，是真正的 `.py` 文件，可以用编辑器打开 `workspace/` 编辑；解释器选 `workspace/.venv`。",
-	"workspace_en": "Your dojo code is real `.py` files in `workspace/<dojo>/`; open `workspace/` in your editor and pick `workspace/.venv` as the interpreter."
-}

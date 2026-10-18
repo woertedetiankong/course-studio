@@ -1,23 +1,19 @@
-// __COURSE_TITLE__：本地运行器。
+// __COURSE_TITLE__：本地课程网站 / the course site on this computer.
 //
-// It serves the course home and the coding dojo on 127.0.0.1, keeps your code as real files in a
-// workspace folder, and runs each dojo's real test toolchain on them when you press Run
-// (go test, node --test, pytest, cargo test: see lib/langs/). Each dojo lives under course/dojos/<id>/.
+// It serves the course home, the lab and flowchart pages, the project atlas and the episode media on 127.0.0.1.
 //
 //	npm start                                  # then open the printed link
-//	node server.ts --workspace ~/my-lab --addr 127.0.0.1:9000 --no-open
+//	node server.ts --addr 127.0.0.1:9000 --no-open
 import { spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
-import { createReadStream, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { extname, join, resolve, sep } from "node:path";
+import { dirname, extname, join, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { addStarters, type Dojo, findDojos, learnerDir, prepareWorkspace, refreshHarness, runLevel, SITE } from "./lib/runner.ts";
 
 const { values: flags } = parseArgs({
 	options: {
 		addr: { type: "string", default: "127.0.0.1:__PORT__" }, // 监听地址（只允许本机）
-		workspace: { type: "string", default: "workspace" }, // 你的代码所在的目录
 		content: { type: "string", default: "content" }, // 视频、实验台等课程内容所在的目录
 		"no-open": { type: "boolean", default: false }, // 启动后不自动打开浏览器
 	},
@@ -30,19 +26,11 @@ if (major < 22 || (major === 22 && minor < 19)) {
 }
 const m = /^(127\.0\.0\.1|localhost|\[::1\]):(\d+)$/.exec(flags.addr!);
 if (!m) {
-	console.error("为了安全，运行器只能监听本机地址，例如 127.0.0.1:__PORT__ / For safety the runner only listens on this machine, e.g. 127.0.0.1:__PORT__");
+	console.error("只能监听本机地址，例如 127.0.0.1:__PORT__ / Listens on this machine only, e.g. 127.0.0.1:__PORT__");
 	process.exit(1);
 }
 const HOST = m[1].replace(/^\[|\]$/g, ""), PORT = Number(m[2]);
-const WS = resolve(flags.workspace!), WEB = join(SITE, "web"), CONTENT = resolve(SITE, flags.content!);
-const dojos = findDojos((s) => console.log("  " + s));
-const token = randomBytes(16).toString("hex");
-let running = false;
-
-// Toolchain checks and installs; a dojo whose toolchain is missing still shows, and explains itself when run.
-const missing = prepareWorkspace(WS, Object.values(dojos), (s) => console.log("  " + s));
-for (const d of Object.values(dojos)) { addStarters(WS, d); refreshHarness(WS, d); }
-const meta = Object.fromEntries(Object.values(dojos).map((d) => [d.id, { lang: d.config.lang, editor: d.driver.editor, label: d.driver.label(d), toolchain: d.driver.toolchain().version ?? null, missing: missing[d.id] ?? null }]));
+const SITE = dirname(fileURLToPath(import.meta.url)), WEB = join(SITE, "web"), CONTENT = resolve(SITE, flags.content!);
 
 // ---------------------------------------------------------------- HTTP
 
@@ -56,8 +44,6 @@ function send(res: ServerResponse, status: number, body: string, type = "text/pl
 	res.writeHead(status, { "Content-Type": type, "Cache-Control": "no-store" });
 	res.end(body);
 }
-const json = (res: ServerResponse, v: unknown) => send(res, 200, JSON.stringify(v), TYPES[".json"]);
-
 /** Serve a file under root, with Range support so videos can seek. */
 function serveFile(req: IncomingMessage, res: ServerResponse, root: string, rel: string): void {
 	const p = resolve(root, "." + decodeURIComponent(rel));
@@ -77,70 +63,8 @@ function serveFile(req: IncomingMessage, res: ServerResponse, root: string, rel:
 	createReadStream(file).pipe(res);
 }
 
-/** Only this page may call the API: right host and port (no DNS rebinding), same origin, and the startup token. */
-function allowed(req: IncomingMessage): string | null {
-	const host = req.headers.host ?? "";
-	const hm = /^(127\.0\.0\.1|localhost|\[::1\]):(\d+)$/.exec(host);
-	if (!hm || Number(hm[2]) !== PORT) return "forbidden host";
-	const origin = req.headers.origin;
-	if (origin && origin !== "http://" + host) return "forbidden origin";
-	if (req.headers["x-dojo-token"] !== token) return "missing or wrong token";
-	return null;
-}
-
-async function body(req: IncomingMessage, limit = 1 << 20): Promise<string> {
-	let s = "";
-	for await (const chunk of req) { s += chunk; if (s.length > limit) throw new Error("too large"); }
-	return s;
-}
-
-function userFiles(d: Dojo) {
-	const dir = learnerDir(WS, d);
-	return readdirSync(dir)
-		.filter((n) => d.driver.isLearnerFile(n))
-		.sort()
-		.map((name) => ({ name, content: readFileSync(join(dir, name), "utf8"), mtime: Math.round(statSync(join(dir, name)).mtimeMs) }));
-}
-
-async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
-	const deny = allowed(req);
-	if (deny) return send(res, deny.startsWith("missing") ? 401 : 403, deny);
-	// dojos: {id: levels} for the home page; meta: per-dojo language, editor mode, test command, toolchain
-	if (url.pathname === "/api/info") return json(res, { runtime: `Node ${process.version}`, workspace: WS, dojos: Object.fromEntries(Object.values(dojos).map((d) => [d.id, d.levels])), meta });
-	const id = url.searchParams.get("dojo") ?? "";
-	const d = dojos[id];
-	if (!d) return send(res, 400, "unknown dojo");
-	if (url.pathname === "/api/files") return json(res, userFiles(d));
-	if (url.pathname === "/api/file") {
-		const name = url.searchParams.get("name") ?? "";
-		if (req.method !== "PUT" || !d.driver.isLearnerFile(name)) return send(res, 400, "bad request");
-		const p = join(learnerDir(WS, d), name);
-		writeFileSync(p, await body(req));
-		return json(res, { mtime: Math.round(statSync(p).mtimeMs) });
-	}
-	if (url.pathname === "/api/run") {
-		let level = 0;
-		try { level = JSON.parse(await body(req)).level; } catch {}
-		if (req.method !== "POST" || !Number.isInteger(level) || level < 1 || level > d.levels) return send(res, 400, "bad request");
-		if (missing[id]) { const [zh, en] = missing[id].split(" / "); return json(res, { dojo: id, level, ok: false, race: false, tests: [], seconds: 0, fatal: { name: "", ok: false, elapsed: 0, code: "toolchain", msg: zh, msg_en: en ?? zh } }); }
-		if (running) return send(res, 409, "已经有测试在运行 / Tests are already running");
-		running = true;
-		try {
-			refreshHarness(WS, d);
-			return json(res, await runLevel(WS, d, level));
-		} finally {
-			running = false;
-		}
-	}
-	send(res, 404, "not found");
-}
-
 const server = createServer((req, res) => {
 	const url = new URL(req.url ?? "/", "http://x");
-	if (url.pathname.startsWith("/api/")) {
-		handleApi(req, res, url).catch((e) => { if (!res.headersSent) send(res, 500, String(e?.message ?? e)); });
-		return;
-	}
 	if (url.pathname.startsWith("/content/")) return serveFile(req, res, CONTENT, url.pathname.slice("/content".length));
 	serveFile(req, res, WEB, url.pathname);
 });
@@ -150,9 +74,8 @@ server.on("error", (e: NodeJS.ErrnoException) => {
 	process.exit(1);
 });
 server.listen(PORT, HOST, () => {
-	const link = `http://${flags.addr}/?t=${token}`;
-	const tools = [...new Set(Object.values(meta).map((m) => m.toolchain).filter((t) => t && !t.startsWith("Node ")))].join(" · ");
-	console.log(`\n  __COURSE_TITLE__ 已启动 / started\n\n  课程首页 / Home:     ${link}\n  代码目录 / Code:     ${WS}\n  工具链 / Toolchains: Node ${process.version}${tools ? " · " + tools : ""}\n\n  按 Ctrl+C 退出。 / Press Ctrl+C to stop.\n`);
+	const link = `http://${flags.addr}/`;
+	console.log(`\n  __COURSE_TITLE__ 已启动 / started\n\n  课程首页 / Home:  ${link}\n\n  按 Ctrl+C 退出。 / Press Ctrl+C to stop.\n`);
 	if (!flags["no-open"]) {
 		const [cmd, ...args] = process.platform === "darwin" ? ["open", link] : process.platform === "win32" ? ["cmd", "/c", "start", "", link] : ["xdg-open", link];
 		spawn(cmd, args, { stdio: "ignore", detached: true }).on("error", () => {}).unref();
