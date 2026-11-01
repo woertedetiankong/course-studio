@@ -42,7 +42,7 @@ def main(argv=None):
     skip = {"lab.html", "lab_data.py", "flow.html"} if a.video_only else set()
     shutil.copytree(SRC, a.dest, ignore=lambda d, names: [n for n in names if n in skip or n == "__pycache__"])
     subs = {"__EP_TITLE_EN__": a.title_en or a.title, "__COURSE_TITLE_EN__": a.course_title_en or a.course_title,
-            "__EP_TITLE__": a.title, "__EP_ID__": f"ep{a.n:02d}{a.part}", "__EP_NN__": f"{a.n:02d}{a.part}", "__EP_N__": str(a.n),
+            "__EP_TITLE__": a.title, "__EP_ID__": f"ep{a.n:02d}{a.part}", "__EP_NN__": f"{a.n:02d}{a.part}", "__EP_N__": f"{a.n}{a.part}",
             "__COURSE_TITLE__": a.course_title, "__TIMEOUT__": str(a.timeout)}
     for f in os.listdir(a.dest):
         if f.endswith((".html", ".js", ".json", ".py", ".mjs")):

@@ -117,9 +117,10 @@ h1{font-size:clamp(32px,4.4vw,52px); font-weight:600; letter-spacing:-.03em; lin
   .wrap{padding:0; gap:0; max-width:none}
   .hero,.toc,.chap > header,.zoom,.meta a{display:none!important}
   .chap{gap:0}
-  .slide{grid-template-columns:1fr; border:0; border-radius:0; break-after:page; break-inside:avoid; height:189mm; align-content:start}
-  .slide img{width:auto; height:auto; max-height:136mm; max-width:100%; margin:0 auto; border-radius:4px; cursor:auto}
-  .notes{padding:4mm 2mm 0; gap:5px}
+  /* one page per slide: the picture gives up height so up to --max-lines 6 of notes always fit (no clipping) */
+  .slide{display:flex; flex-direction:column; border:0; border-radius:0; break-after:page; break-inside:avoid; height:189mm}
+  .slide img{flex:0 1 136mm; min-height:60mm; width:100%; height:auto; aspect-ratio:auto; object-fit:contain; background:none; cursor:auto}
+  .notes{flex:none; padding:4mm 2mm 0; gap:5px}
   .notes .meta{color:#6E6E73}
   .line .a{font-size:11pt; color:#141414} .line .b{font-size:9.5pt; color:#3F3F46}
   .extra{break-before:page; gap:4mm} .extra > header{display:flex!important; padding:0}

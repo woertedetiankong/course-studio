@@ -83,6 +83,10 @@ fs.writeFileSync('slides.html', fs.readFileSync('slides_page.html', 'utf8').repl
 if (PDF) {
   await p.goto('file://' + process.cwd() + '/slides.html?print'); await p.evaluate(() => document.fonts.ready);
   await p.waitForFunction(() => [...document.images].every(i => i.complete));
+  // each slide is one fixed-height page; warn if its notes still don't fit (A4 landscape minus margins ≈ 1047px wide)
+  await p.setViewportSize({width: 1047, height: 714}); await p.emulateMedia({media: 'print'});
+  const cut = await p.evaluate(() => [...document.querySelectorAll('.slide')].flatMap((s, i) => s.scrollHeight > s.clientHeight + 1 ? [i + 1] : []));
+  if (cut.length) console.warn(`⚠ slides.pdf: notes clipped on slide ${cut.join(', ')}; lower --max-lines`);
   await p.pdf({path: 'slides.pdf', format: 'A4', landscape: true, printBackground: true, preferCSSPageSize: true});
 }
 const beats = TL.scenes.reduce((n, s) => n + s.beats.length, 0);
