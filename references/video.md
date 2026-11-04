@@ -27,7 +27,7 @@ timeline.json ──site/dev/sync_content.py──▶ content/epNN/chapters.json
 | Animation is for | showing what reading the code can't: timing (who interrupts whom, in what order), data flow across files, state machines side by side, model ↔ generated code, real waveforms before/after a change |
 | Basics | set by the learners, recorded in the course plan: learners who know the field get one line at most; learners new to it get each prerequisite taught concept-first on first use (see "Concept first" below); either way an analogy wherever a fitting one exists (see "Analogies" below) |
 | Code | the main subject, 40–50 %: real paths, function and variable names, cut lines marked `…`; a foundation episode that teaches the field (sglang-omni Part 0) may be mostly concept |
-| Scene arc | problem (why it exists) → mechanism animation → source walkthrough → evidence (a real run, real numbers) → pitfall / design trade-off |
+| Scene arc | problem (why it exists) → mechanism animation → source walkthrough → evidence (a real run, real numbers); a pitfall / design trade-off only when it makes the logic clearer (optional, see "Logic first, without jumps" below) |
 | "Understandable" means | "so *that's* what this code does" — clear, not shallow |
 | Voice (`tts.py`) | clear, confident senior engineer talking to a peer, brisk but unhurried |
 
@@ -37,6 +37,12 @@ Real evidence beats illustration: when the course has a runnable target (a simul
 
 Depth is never cut; it is made followable. Learned on robot-course ep11: its first version, made before this pattern existed, put four encoder protocols, their checks and six pitfalls into one 10-minute video; it was correct but "too hard". the remake (ep11a: one protocol, one real frame followed end to end, 12 minutes) was understood on first viewing. It is how the 40–50 % code share gets absorbed.
 
+- **Logic first, without jumps** (robot-course learners, 2026-11-04: not every lesson needs error handling; what they want is the framework's logic laid out clearly, with no jumps). The viewer always knows why we are at this line and how we got here.
+  - **Narration order = run order** on the running example: the stops come in the order the code reaches them.
+  - **Every stop is entered through what hands over to it**: the call, the interrupt, the function pointer, the queue, the flag. Never through "now let's look at X".
+  - **Each scene ends on what it hands the next one** (the value, the flag, the call that comes next), and the next scene opens from it.
+  - **Asides wait.** A variant, a what-if, a pitfall or a serving remark never breaks into the main path. It goes after the path reaches its output, or into another part.
+  - **Error handling is optional.** A check on the path is read as code where it sits, in a line, with the running example passing through it ("the CRC matches, so it carries on"). A failure scene, a what-if or a pitfalls part is added only when it makes the logic clearer, never because the skeleton has a row for it.
 - **One running example, carried end to end.** Pick one concrete input from a real run (a frame `02 00 3C 99 00 A7`, a CAN write of 262144, a step of 0.1 N·m) and follow it through every stage until it becomes the output (178.71°). The same numbers appear in every scene. Never switch examples mid-episode except for a "what if it breaks" contrast, and say so.
 - **A stop strip.** Number the stages in an early "the journey" scene and keep a thin strip under the chapter title showing the current stop (ep11a `stopBar`, ep36 `routeBar`). The viewer always knows where they are.
 - **One picture that ties the events together, across every part** (robot-course viewers, 2026-10-14, on the first ep06: by the later parts they had forgotten the earlier ones, the many key events did not connect, and the order was easy to get lost in). A stop strip only orders one video's stages; a topic with many events, or one split into parts, also needs a picture of *why* the events happen. Look for the few named conditions or states the events change (ep06's remake: four "gates", each one variable in the code, `bus_voltage_check_flag` … `hw_ready_state`, each opened by an event and each holding back a named function) and tell every event as a change on that picture ("gate 2 opens at 512.25 ms"), not as one more item on a timeline. Introduce the whole picture early, with what each element holds back; keep a small copy of it in a corner of every scene of every part, lit as events happen; open each part on it ("last time") and end each part with it updated; let the last part close with the whole topic on one page. Build it as one shared helper copied into each part (ep06a–e `gates.part.js`, `gateBoard()` / `corner()`).
@@ -60,7 +66,7 @@ Depth is never cut; it is made followable. Learned on robot-course ep11: its fir
 - **"So far" when a lot has piled up** (three cards; ep11a had one every five or six scenes), a final recap, then a "your turn" that hands the viewer a *new* real input to work by hand, pauses, and shows the answer and the real run.
 - **Unhurried timing.** Lines ≤ 20 words; gaps of 0.6 s; subtitles stay long enough to read both languages (the template `silent_timeline.py` timing). One idea per line.
 - **Splitting is your judgment** — decide after reading the episode's code, never from the title alone (robot-course ep11 looked like one episode until `drv_encoder.c` showed six types, different check policies and five measured pitfalls; it became 11a–11d). Earlier splits for reference: ep01's nine stops became 1b and 1c; ep11's parallel protocols got their own part (11b); its measured pitfalls got theirs (11c). Signs a part is too dense, besides names: many timestamps for the viewer to hold, detours that leave the main line before it is finished, or more than one mechanism (the first ep06b held call order, a one-tick delay, a lock-free handover, interrupt priorities and a stopwatch; the first ep06a had six stops, two what-ifs and about twelve timestamps; both were remade as 6a–6e, one mechanism each, around one shared picture). More parts alone do not fix a missing backbone; give the parts the shared picture too. Show the user the stop list and the split before producing anything. Keep episode numbers stable; parts are `NNa/NNb/NNc`. A course plan may carry a pre-reading estimate (robot-course `plan.py` `PARTS`), marked as an estimate.
-- **One way to split a dense topic** (how ep11 was done): part A = the main path with one example, done thoroughly; part B = the variants, each shown only as its *difference* from part A, stop by stop; part C = what goes wrong (checks, error paths, pitfalls from real runs), each pitfall guess-first. Part B and C reuse part A's stop strip.
+- **One way to split a dense topic** (how ep11 was done): part A = the main path with one example, done thoroughly; part B = the variants, each shown only as its *difference* from part A, stop by stop; optionally part C = what goes wrong (checks, error paths, pitfalls from real runs), each pitfall guess-first, only when those failures teach something the main path doesn't. Part B and C reuse part A's stop strip.
 
 ## Video-first courses: the video is the whole course
 
@@ -84,7 +90,7 @@ Only real runs, as before: every number on screen comes from the harness; anythi
 | 4–8 | The mechanism, one piece per scene: animation → the real source, line by line | 200 |
 | 9 | "So far" | 20 |
 | 10–12 | Evidence: run it, real waveforms / numbers, one change and its effect | 100 |
-| 13–14 | Pitfalls, design trade-offs, what the code assumes | 60 |
+| 13–14 | Optional: pitfalls, design trade-offs, what the code assumes (skip when they don't make the logic clearer) | 60 |
 | 15 | Limits: what this doesn't show or cover, and which episode does | 30 |
 | 16 | Recap: three things to remember | 25 |
 | 17 | Your turn: a change to make and predict | 20 |
@@ -105,7 +111,7 @@ Narration (script.json)
 - **Every identifier the narration names gets its role in a few words**, the first time it comes up and again when it returns later (see "Every name the video points at says what it is" above); a field term gets the same treatment; the field's basics get one line at most when the learners know the field, and a concept-first scene when they don't (see "Concept first" above).
 - **A fitting analogy may open a hard idea** (see "Analogies" above), then land on the running example's numbers.
 - **Ask, pause, answer.** Pose the question the viewer should be asking ("so why not just make Kp huge?"), give it a beat, then answer. A few per episode.
-- **Show it failing first.** The "what breaks without it" moment from the outline gets its own scene before the fix.
+- **A failure scene is optional.** When the outline has a "what breaks without it" moment, it gets its own scene: either as the opening problem, before the mechanism, or after the main path. Never put it in the middle of the path. Most episodes need none (see "Logic first, without jumps" above).
 - **Recap mid-way and at the end.** One "so far:" scene around the middle (three bullet chips), one recap scene at the end, then a "your turn".
 - No jargon walls, no "obviously/simply/just", no unexplained acronyms.
 
