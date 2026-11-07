@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__EP_TITLE__</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{--page:#E4DDD0;--ink:#1E1C19;--mute:#7A7266}
+  html,body{margin:0;min-height:100%;background:var(--page);color:var(--ink);font-family:"Noto Sans SC",system-ui,sans-serif}
+  .player{max-width:1280px;margin:0 auto;padding:24px 16px;display:flex;flex-direction:column;gap:12px}
+  canvas{width:100%;height:auto;display:block;border-radius:4px;background:#F3EEE4;box-shadow:0 1px 0 rgba(0,0,0,.05),0 12px 32px rgba(70,50,20,.14)}
+  .bar{display:flex;gap:12px;align-items:center}
+  .bar button{font:inherit;background:var(--ink);color:#F3EEE4;border:0;border-radius:4px;padding:8px 16px;cursor:pointer;min-width:84px}
+  .bar input{flex:1;accent-color:#D4572F}
+  .bar span{font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--mute);font-variant-numeric:tabular-nums}
+  body.record .bar{display:none} body.record .player{padding:0;max-width:none} body.record canvas{border-radius:0;width:1920px;box-shadow:none}
+</style>
+</head>
+<body>
+<div class="player">
+  <canvas id="cv" width="1920" height="1080"></canvas>
+  <div class="bar"><button id="pp" type="button">Play</button><input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Seek"><span id="tm">0:00</span></div>
+</div>
+<audio id="au" src="narration.mp3" preload="auto"></audio>
+<script>
+/* =========================================================
+   PAPER STYLE — "纸面图解" engine (paper editorial explainer); see references/video-paper.md
+   Same contract as the 3b1b head.html: TL, W/H, cv/ctx, C, F, ramp/eo…, render(t) lives in tail.html.
+   A series' own shared picture (and its drawCorner) goes in <course>/shared/*.part.js, not here.
+   ========================================================= */
+var TL = /*TIMELINE*/null;
+var W = 1920, H = 1080;
+var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+
+/* Palette: warm paper + ink, and five meaning colours. Give each idea of a series one of them (a layer, an actor, a
+   kind of data) and never use it for anything else; a series part file may alias them (C.notes = C.coral). */
+const C = {
+  paper:'#F3EEE4', paper2:'#EAE3D6', card:'#FBF8F2', ink:'#1E1C19', ink2:'#57514A', mute:'#8E867B', rule:'#D6CDBE',
+  hi:'#F4CF55',                      // highlighter marker
+  stamp:'#B8322A',                   // rubber stamps, strike-throughs, ✗
+  slate:'#6E7F96', coral:'#D4572F', teal:'#2F8A7E', amber:'#D29522', violet:'#5B4FA0'
+};
+const F = {
+  serif:'"Newsreader", Georgia, serif',
+  zhSerif:'"Noto Serif SC", "Songti SC", serif',
+  sans:'"Noto Sans SC", "PingFang SC", sans-serif',
+  mono:'"IBM Plex Mono", Menlo, monospace',
+  monoZh:'"IBM Plex Mono", "Noto Sans SC", monospace'
+};
+
+/* ---------- math ---------- */
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const ramp = (t,a,b) => clamp((t-a)/(b-a), 0, 1);
+const eio = x => x<.5 ? 4*x*x*x : 1 - Math.pow(-2*x+2,3)/2;
+const eo = x => 1 - Math.pow(1-x,3);
+const eback = x => { const c1=1.70158, c3=c1+1; return 1 + c3*Math.pow(x-1,3) + c1*Math.pow(x-1,2); };
+const lerp = (a,b,t) => a + (b-a)*t;
+const rnd = i => { const x = Math.sin(i*127.1 + 311.7)*43758.5453; return x - Math.floor(x); };
+const rgba = (hex,a) => { const n = parseInt(hex.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; };
+function mixHex(a,b,t){ const x=parseInt(a.slice(1),16), y=parseInt(b.slice(1),16); const c=s=>Math.round(lerp(x>>s&255, y>>s&255, t)); return '#'+((c(16)<<16)|(c(8)<<8)|c(0)).toString(16).padStart(6,'0'); }
+const fmtInt = n => Math.round(n).toLocaleString('en-US');
+// piecewise-linear keyframes: knots(t, [[t0, v0], [t1, v1], …])
+function knots(t, ks){ if (t <= ks[0][0]) return ks[0][1]; for (let i=1;i<ks.length;i++) if (t <= ks[i][0]) return lerp(ks[i-1][1], ks[i][1], (t - ks[i-1][0])/(ks[i][0] - ks[i-1][0])); return ks[ks.length-1][1]; }
+
+/* ---------- cue: time of a word inside a narration line ----------
+   cue(i, '二楼') → seconds (scene-local) when line i reaches '二楼', estimated by character position in the line.
+   Lets an element land on the word that names it, not just at the start of the line. */
+var CUR = null;   // current scene object from timeline.json, set by render()
+function cue(i, word, lead = .15){
+  const bt = CUR.beats[i]; if (!word) return bt.start;
+  const k = bt.zh.indexOf(word); const sp = bt.speech ?? bt.dur; if (k < 0){ console.error(`cue miss: ${CUR.id} line ${i} '${word}'`); return bt.start; }
+  const wt = ch => /[\u4e00-\u9fff]/.test(ch) ? 1 : /[0-9]/.test(ch) ? 1.3 : /[A-Za-z]/.test(ch) ? .4 : /[，。：；、？！]/.test(ch) ? 1.6 : ch === ' ' ? .15 : .5;
+  const sum = s => [...s].reduce((a, ch) => a + wt(ch), 0);
+  return bt.start + sp * sum(bt.zh.slice(0, k)) / sum(bt.zh) - lead;
+}
+const lineEnd = i => CUR.beats[i].start + (CUR.beats[i].speech ?? CUR.beats[i].dur);
+
+/* ---------- text ---------- */
+function text(s,x,y,o={}){
+  ctx.save(); ctx.globalAlpha *= (o.alpha ?? 1);
+  ctx.font = `${o.italic ? 'italic ' : ''}${o.weight||500} ${o.size||28}px ${o.font||F.sans}`;
+  ctx.fillStyle = o.color || C.ink; ctx.textAlign = o.align || 'center'; ctx.textBaseline = o.base || 'middle';
+  if (o.ls) ctx.letterSpacing = o.ls + 'px';
+  ctx.fillText(s,x,y); ctx.restore();
+}
+function measure(s, o={}){ ctx.save(); ctx.font = `${o.italic ? 'italic ' : ''}${o.weight||500} ${o.size||28}px ${o.font||F.sans}`; if (o.ls) ctx.letterSpacing = o.ls + 'px'; const w = ctx.measureText(s).width; ctx.restore(); return w; }
+function wrapWords(s, maxW, o){ const out = []; let cur = ''; for (const w of s.split(' ')){ const t = cur ? cur+' '+w : w; if (measure(t,o) > maxW && cur){ out.push(cur); cur = w; } else cur = t; } if (cur) out.push(cur); return out; }
+function wrapZh(s, maxW, o){ const out = []; let cur = '';
+  for (const ch of s){ if (measure(cur + ch, o) > maxW && cur && !'，。：；、）”？！'.includes(ch)){ const k = Math.max(...['，','。','：','；','、'].map(p => cur.lastIndexOf(p)));
+      if (k > cur.length - 14 && k >= 0){ out.push(cur.slice(0, k + 1)); cur = cur.slice(k + 1) + ch; } else { out.push(cur); cur = ch; } } else cur += ch; }
+  if (cur) out.push(cur); return out; }
+
+/* ---------- shapes ---------- */
+function rr(x,y,w,h,r){ ctx.beginPath(); ctx.roundRect(x,y,w,h,r); }
+function hline(x1,x2,y,color=C.rule,lw=1.5,a=1){ ctx.save(); ctx.globalAlpha*=a; ctx.strokeStyle=color; ctx.lineWidth=lw; ctx.beginPath(); ctx.moveTo(x1,y); ctx.lineTo(x2,y); ctx.stroke(); ctx.restore(); }
+
+/* Paper card: light sheet, hairline edge, soft drop shadow; optional tilt (deg) around its centre. */
+function card(x,y,w,h,o={}){
+  ctx.save(); ctx.globalAlpha *= (o.alpha ?? 1);
+  if (o.tilt){ ctx.translate(x+w/2, y+h/2); ctx.rotate(o.tilt*Math.PI/180); ctx.translate(-x-w/2, -y-h/2); }
+  ctx.shadowColor = 'rgba(70,50,20,.16)'; ctx.shadowBlur = o.shadow ?? 28; ctx.shadowOffsetY = 10;
+  rr(x,y,w,h,o.r ?? 8); ctx.fillStyle = o.fill || C.card; ctx.fill();
+  ctx.shadowColor = 'transparent'; ctx.lineWidth = o.lw || 1.5; ctx.strokeStyle = o.edge || C.rule; ctx.stroke();
+  ctx.restore();
+}
+
+/* Highlighter: a marker stroke swept left→right by p, drawn BEHIND the text it marks (call it first). */
+function highlight(x,y,w,h,p,color=C.hi,a=.75){
+  if (p <= 0) return; const ww = w * eio(clamp(p,0,1));
+  ctx.save(); ctx.globalAlpha *= a; ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = color;
+  ctx.beginPath(); ctx.moveTo(x-4, y+h*.18); ctx.lineTo(x+ww, y+h*.06); ctx.lineTo(x+ww+3, y+h*.94); ctx.lineTo(x-2, y+h); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+/* Marker under a run of text drawn with text(): pass the same o as text() and the text's anchor. */
+function markText(s,x,y,o,p,color){ const w = measure(s,o), sz = o.size||28; const x0 = (o.align === 'left') ? x : (o.align === 'right') ? x - w : x - w/2; highlight(x0 - 6, y - sz*.42, w + 12, sz*.92, p, color); }
+
+/* Hand-drawn strike-through, swept by p. */
+function strike(x1,y,x2,p,color=C.stamp,lw=5){ if (p<=0) return; ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(x1, y+3); ctx.lineTo(lerp(x1,x2,eo(p)), y-3 + 2*Math.sin(p*3)); ctx.stroke(); ctx.restore(); }
+
+/* Rubber stamp: bordered red label that thumps in (k 0→1). */
+function stamp(s,x,y,k,o={}){
+  if (k <= 0) return; const sz = o.size || 34, s1 = lerp(1.5, 1, eback(clamp(k,0,1)));
+  ctx.save(); ctx.translate(x,y); ctx.rotate((o.tilt ?? -6)*Math.PI/180); ctx.scale(s1,s1); ctx.globalAlpha *= clamp(k*2,0,1) * .92;
+  const w = measure(s,{size:sz,font:F.sans,weight:700}) + 40;
+  rr(-w/2, -sz*.85, w, sz*1.7, 6); ctx.lineWidth = 4; ctx.strokeStyle = C.stamp; ctx.stroke();
+  text(s, 0, 2, {size:sz, font:F.sans, weight:700, color:C.stamp});
+  ctx.restore();
+}
+
+/* Leader line + label (an editorial callout): from point (ax,ay) to the label at (lx,ly). */
+function callout(ax,ay,lx,ly,lines,p,o={}){
+  if (p <= 0) return; const a = eo(clamp(p,0,1));
+  ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = o.color || C.ink2; ctx.lineWidth = 1.6;
+  const mx = lerp(ax, lx, .0), my = ly;
+  ctx.beginPath(); ctx.arc(ax, ay, 4.5, 0, Math.PI*2); ctx.fillStyle = o.color || C.ink2; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(lerp(ax, mx, eo(clamp(p*2,0,1))), lerp(ay, my, eo(clamp(p*2,0,1)))); ctx.lineTo(lerp(mx, lx - (o.align === 'right' ? -12 : 12), eo(clamp(p*2-1,0,1))), my); ctx.stroke();
+  ctx.restore();
+  lines.forEach((l,i) => text(l.s, lx, ly + (i - (lines.length-1)/2) * (l.gap || 34), {align:o.align || 'left', alpha:eo(clamp(p*2-1,0,1)), ...l}));
+}
+
+/* A generic medal (original geometric design): ring, disc, five-point star. k = pop-in 0→1. */
+function medal(x,y,r,k,color=C.amber){
+  if (k <= 0) return; const s = eback(clamp(k,0,1));
+  ctx.save(); ctx.translate(x,y); ctx.scale(s,s);
+  ctx.fillStyle = rgba(C.coral,.9); ctx.beginPath(); ctx.moveTo(-r*.55,-r*.6); ctx.lineTo(-r*.95,-r*1.7); ctx.lineTo(-r*.2,-r*1.7); ctx.lineTo(0,-r*.7); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(r*.55,-r*.6); ctx.lineTo(r*.95,-r*1.7); ctx.lineTo(r*.2,-r*1.7); ctx.lineTo(0,-r*.7); ctx.fill();
+  ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fillStyle = color; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = C.ink; ctx.stroke();
+  ctx.beginPath(); ctx.arc(0,0,r*.72,0,Math.PI*2); ctx.strokeStyle = rgba(C.card,.8); ctx.lineWidth = 2; ctx.stroke();
+  ctx.beginPath(); for (let i=0;i<10;i++){ const a = -Math.PI/2 + i*Math.PI/5, rr2 = i%2 ? r*.24 : r*.52; ctx.lineTo(Math.cos(a)*rr2, Math.sin(a)*rr2); } ctx.closePath(); ctx.fillStyle = C.card; ctx.fill();
+  ctx.restore();
+}
+
+/* ---------- squarified treemap ---------- */
+function squarify(vals, x, y, w, h){
+  const total = vals.reduce((a,b)=>a+b,0), out = [];
+  const items = vals.map((v,i)=>({v: v*w*h/total, i})).sort((a,b)=>b.v-a.v);
+  let R = {x,y,w,h}, row = [];
+  const worst = (row, side) => { const s = row.reduce((a,r)=>a+r.v,0); let mx=0, mn=Infinity; for (const r of row){ mx=Math.max(mx,r.v); mn=Math.min(mn,r.v); } return Math.max(side*side*mx/(s*s), (s*s)/(side*side*mn)); };
+  const lay = row => { const s = row.reduce((a,r)=>a+r.v,0);
+    if (R.w >= R.h){ const cw = s/R.h; let yy = R.y; for (const r of row){ const ch = r.v/cw; out.push({x:R.x,y:yy,w:cw,h:ch,i:r.i}); yy += ch; } R = {x:R.x+cw, y:R.y, w:R.w-cw, h:R.h}; }
+    else { const ch = s/R.w; let xx = R.x; for (const r of row){ const cw = r.v/ch; out.push({x:xx,y:R.y,w:cw,h:ch,i:r.i}); xx += cw; } R = {x:R.x, y:R.y+ch, w:R.w, h:R.h-ch}; } };
+  for (const it of items){ const side = Math.min(R.w, R.h); if (!row.length || worst([...row,it], side) <= worst(row, side)) row.push(it); else { lay(row); row = [it]; } }
+  if (row.length) lay(row);
+  return out.sort((a,b)=>a.i-b.i);
+}
+
+/* ---------- paper: grain texture (made once, seeded) + soft vignette ---------- */
+const GRAIN = (() => { const g = document.createElement('canvas'); g.width = 960; g.height = 540; const gx = g.getContext('2d');
+  const im = gx.createImageData(960, 540); for (let i=0;i<im.data.length;i+=4){ const v = rnd(i*.25 + 7) * 255; im.data[i]=im.data[i+1]=im.data[i+2]=v; im.data[i+3]=255; }
+  gx.putImageData(im,0,0); return g; })();
+function background(t){
+  ctx.fillStyle = C.paper; ctx.fillRect(0,0,W,H);
+  ctx.save(); ctx.globalAlpha = .045; ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(GRAIN, 0, 0, W, H); ctx.restore();
+  const g = ctx.createRadialGradient(W/2, H*.45, H*.35, W/2, H*.5, H*1.05); g.addColorStop(0,'rgba(120,90,40,0)'); g.addColorStop(1,'rgba(120,90,40,.10)');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+}
+
+/* =========================================================
+   Diagram primitives
+   ========================================================= */
+/* Quadratic curve a→c→b drawn up to p (0..1), arrowhead at the end (o.both: at the start too). Returns {mid, end, at(t)}. */
+function qbz(a,c,b,t){ const u=1-t; return {x:u*u*a.x+2*u*t*c.x+t*t*b.x, y:u*u*a.y+2*u*t*c.y+t*t*b.y}; }
+function arrowHead(x,y,ang,size,color){ ctx.save(); ctx.translate(x,y); ctx.rotate(ang); ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-size, -size*.55); ctx.lineTo(-size*.75, 0); ctx.lineTo(-size, size*.55); ctx.closePath(); ctx.fill(); ctx.restore(); }
+function curveArrow(a,c,b,p,color,o={}){
+  const geo = {mid: qbz(a,c,b,.5), end: b, at: t => qbz(a,c,b,t)};
+  if (p <= 0) return geo; p = clamp(p,0,1);
+  ctx.save(); ctx.globalAlpha *= (o.alpha ?? 1); ctx.strokeStyle = color; ctx.lineWidth = o.lw || 3; ctx.lineCap = 'round'; if (o.dash) ctx.setLineDash(o.dash);
+  ctx.beginPath(); const N = 40; for (let i=0;i<=N*p;i++){ const q = qbz(a,c,b,i/N); i ? ctx.lineTo(q.x,q.y) : ctx.moveTo(q.x,q.y); } const e = qbz(a,c,b,p); ctx.lineTo(e.x,e.y); ctx.stroke(); ctx.setLineDash([]);
+  const hs = o.head ?? 14;
+  if (hs){ const e0 = qbz(a,c,b,Math.max(0,p-.02)); arrowHead(e.x, e.y, Math.atan2(e.y-e0.y, e.x-e0.x), hs, color);
+    if (o.both && p > .9){ const s1 = qbz(a,c,b,.02); arrowHead(a.x, a.y, Math.atan2(a.y-s1.y, a.x-s1.x), hs, color); } }
+  ctx.restore(); return geo;
+}
+function arrowLine(a,b,p,color,o={}){ return curveArrow(a, {x:(a.x+b.x)/2, y:(a.y+b.y)/2}, b, p, color, o); }
+
+/* Icons: generic, drawn from simple geometry (no brand marks). */
+function sun(x,y,r,color=C.amber,a=1){ if (a<=0) return; ctx.save(); ctx.globalAlpha*=a; ctx.fillStyle=color; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); ctx.strokeStyle=color; ctx.lineWidth=r*.18; ctx.lineCap='round';
+  for (let i=0;i<8;i++){ const t=i*Math.PI/4; ctx.beginPath(); ctx.moveTo(x+Math.cos(t)*r*1.45, y+Math.sin(t)*r*1.45); ctx.lineTo(x+Math.cos(t)*r*1.9, y+Math.sin(t)*r*1.9); ctx.stroke(); } ctx.restore(); }
+function moon(x,y,r,color=C.violet,a=1){ if (a<=0) return; ctx.save(); ctx.globalAlpha*=a; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.clip(); ctx.fillStyle=color; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.arc(x+r*.55,y-r*.35,r*.82,0,Math.PI*2); ctx.fill('evenodd'); ctx.restore(); }
+function agentIcon(x,y,s=1,a=1,color=C.ink){ if (a<=0) return; ctx.save(); ctx.globalAlpha*=a; ctx.translate(x,y); ctx.scale(s,s);
+  rr(-34,-30,68,60,16); ctx.fillStyle=C.card; ctx.fill(); ctx.lineWidth=3; ctx.strokeStyle=color; ctx.stroke();
+  ctx.fillStyle=color; ctx.beginPath(); ctx.arc(-12,-2,5,0,Math.PI*2); ctx.arc(12,-2,5,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(0,-30); ctx.lineTo(0,-44); ctx.stroke(); ctx.beginPath(); ctx.arc(0,-48,5,0,Math.PI*2); ctx.fillStyle=C.coral; ctx.fill(); ctx.restore(); }
+function folderIcon(x,y,w,h,o={}){ const a=o.alpha??1; if (a<=0) return; const c=o.color||C.coral; ctx.save(); ctx.globalAlpha*=a;
+  ctx.beginPath(); ctx.moveTo(x, y+12); ctx.lineTo(x, y+h); ctx.lineTo(x+w, y+h); ctx.lineTo(x+w, y+20); ctx.lineTo(x+w*.42, y+20); ctx.lineTo(x+w*.36, y); ctx.lineTo(x+6, y); ctx.closePath();
+  ctx.fillStyle = mixHex(C.card, c, o.fillK ?? .18); ctx.fill(); ctx.lineWidth = o.lw || 2.5; ctx.strokeStyle = c; ctx.stroke();
+  if (o.label) text(o.label, x + w/2, y + h/2 + 10, {size:o.size||22, font:F.mono, weight:500, color:C.ink, alpha:1});
+  ctx.restore(); }
+function fileIcon(x,y,w,h,o={}){ const a=o.alpha??1; if (a<=0) return; const c=o.color||C.ink2, f=Math.min(w,h)*.28; ctx.save(); ctx.globalAlpha*=a;
+  if (o.tilt){ ctx.translate(x+w/2,y+h/2); ctx.rotate(o.tilt*Math.PI/180); ctx.translate(-x-w/2,-y-h/2); }
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+w-f,y); ctx.lineTo(x+w,y+f); ctx.lineTo(x+w,y+h); ctx.lineTo(x,y+h); ctx.closePath(); ctx.fillStyle=o.fill||C.card; ctx.fill(); ctx.lineWidth=o.lw||2; ctx.strokeStyle=c; ctx.stroke();
+  if (o.bars) for (let i=0;i<o.bars;i++){ const bw = (w-24) * (.5 + .5*rnd((o.seed||0)*13 + i)); ctx.fillStyle = rgba(c,.28); ctx.fillRect(x+12, y+f+10+i*Math.max(10,h*.14), bw, Math.max(4,h*.06)); }
+  ctx.restore(); }
+function dbIcon(x,y,w,h,o={}){ const a=o.alpha??1; if (a<=0) return; const c=o.color||C.slate, ry=w*.16; ctx.save(); ctx.globalAlpha*=a; ctx.lineWidth=2.5; ctx.strokeStyle=c; ctx.fillStyle=mixHex(C.card,c,.15);
+  ctx.beginPath(); ctx.ellipse(x+w/2, y+h-ry, w/2, ry, 0, 0, Math.PI); ctx.lineTo(x, y+ry); ctx.ellipse(x+w/2, y+ry, w/2, ry, 0, Math.PI, 0, true); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(x+w/2, y+ry, w/2, ry, 0, 0, Math.PI*2); ctx.fillStyle=mixHex(C.card,c,.3); ctx.fill(); ctx.stroke();
+  for (const k of [.38,.66]){ ctx.beginPath(); ctx.ellipse(x+w/2, y+ry + (h-2*ry)*k, w/2, ry, 0, 0, Math.PI); ctx.stroke(); }
+  ctx.restore(); }
+/* Pill label (node in a diagram). o.color tints the edge; o.k pops it in. */
+function pill(x,y,w,h,zh,o={}){ const k = o.k ?? 1; if (k<=0) return; const c=o.color||C.ink; const sc = lerp(.85,1,eback(clamp(k,0,1)));
+  ctx.save(); ctx.globalAlpha *= clamp(k*1.6,0,1) * (o.alpha ?? 1); ctx.translate(x,y); ctx.scale(sc,sc);
+  ctx.shadowColor='rgba(70,50,20,.12)'; ctx.shadowBlur=14; ctx.shadowOffsetY=4; rr(-w/2,-h/2,w,h,h/2); ctx.fillStyle=o.fill||C.card; ctx.fill(); ctx.shadowColor='transparent';
+  ctx.lineWidth=o.lw||2.5; ctx.strokeStyle=c; ctx.stroke();
+  if (o.num) { ctx.beginPath(); ctx.arc(-w/2+h/2, 0, h/2-8, 0, Math.PI*2); ctx.fillStyle=c; ctx.fill(); text(o.num, -w/2+h/2, 1, {size:h*.36, font:F.mono, weight:600, color:C.card}); }
+  const tx = o.num ? -w/2 + h + 8 : 0, al = o.num ? 'left' : 'center';
+  text(zh, tx, o.en ? -h*.13 : 0, {size:o.size||h*.34, font:F.zhSerif, weight:900, align:al});
+  if (o.en) text(o.en, tx, h*.25, {size:h*.22, font:F.serif, italic:true, color:C.mute, align:al});
+  ctx.restore(); }
+/* Sticky note: a small paper card with a coloured strip; lines = [{s, size, color, font}] or a number of placeholder bars. */
+function noteCard(x,y,w,h,o={}){ const a = o.alpha ?? 1; if (a<=0) return; const c = o.color || C.coral;
+  ctx.save(); ctx.globalAlpha *= a; ctx.translate(x+w/2, y+h/2); ctx.rotate((o.tilt||0)*Math.PI/180); ctx.scale(o.scale??1, o.scale??1); ctx.translate(-w/2, -h/2);
+  ctx.shadowColor='rgba(70,50,20,.16)'; ctx.shadowBlur=18; ctx.shadowOffsetY=6; ctx.fillStyle = o.fill || '#FFF9EC'; ctx.fillRect(0,0,w,h); ctx.shadowColor='transparent';
+  ctx.fillStyle = c; ctx.fillRect(0,0,w,8); ctx.strokeStyle = C.rule; ctx.lineWidth = 1.2; ctx.strokeRect(0,0,w,h);
+  if (o.lines) o.lines.forEach((l,i) => text(l.s, 18, 34 + i*(l.gap||36) + (l.dy||0), {size:l.size||24, font:l.font||F.sans, weight:l.weight||500, color:l.color||C.ink, align:'left'}));
+  if (o.bars) for (let i=0;i<o.bars;i++){ ctx.fillStyle = rgba(C.ink2,.22); ctx.fillRect(18, (o.barY||40) + i*20, (w-36)*(.55+.45*rnd((o.seed||1)*7+i)), 8); }
+  ctx.restore(); }
+/* A transcript / log tape: rows of grey bars with timestamps. o.shown = rows visible (float), o.mark = {row: color},
+   o.tag = {row: k} (a flag on the right edge), o.scan = 0..1 (a violet reading line), o.strike = {row: k}. Returns rowY(i). */
+function tape(x,y,w,h,o={}){
+  const a = o.alpha ?? 1, n = o.rows || 12, rh = (h - 60) / n, shown = o.shown ?? n; if (a <= 0) return {rowY: i => y + 50 + i*rh + rh/2};
+  card(x,y,w,h,{alpha:a});
+  ctx.save(); ctx.globalAlpha *= a;
+  text(o.title || '对话记录 · transcript', x + 22, y + 28, {size:20, font:F.monoZh || F.mono, weight:600, color:C.slate, align:'left'});
+  hline(x + 16, x + w - 16, y + 46, C.rule, 1.2);
+  for (let i=0;i<n;i++){
+    const k = clamp(shown - i, 0, 1); if (k <= 0) continue; const ry = y + 50 + i*rh + rh/2;
+    ctx.save(); ctx.globalAlpha *= k;
+    if (o.mark && o.mark[i]) highlight(x + 14, ry - rh*.38, w - 28, rh*.76, o.mark[i].k ?? 1, o.mark[i].color || C.hi, .55);
+    text(`${String(10 + Math.floor(i*1.7)).padStart(2,'0')}:${String(Math.floor(rnd(i+3)*60)).padStart(2,'0')}`, x + 22, ry, {size:15, font:F.mono, color:C.mute, align:'left'});
+    const bw = (w - 150) * (.35 + .6*rnd(i*5.3 + (o.seed||0))); ctx.fillStyle = rgba(C.ink2, .3); ctx.fillRect(x + 82, ry - 4, bw, 8);
+    if (o.strike && o.strike[i]) strike(x + 78, ry, x + 86 + bw, o.strike[i], C.stamp, 3);
+    if (o.tag && o.tag[i]){ const tk = eback(clamp(o.tag[i],0,1)); ctx.save(); ctx.translate(x + w - 30, ry); ctx.scale(tk,tk); ctx.fillStyle = C.coral; ctx.beginPath(); ctx.moveTo(-14,-12); ctx.lineTo(14,-12); ctx.lineTo(8,0); ctx.lineTo(14,12); ctx.lineTo(-14,12); ctx.closePath(); ctx.fill(); ctx.restore(); }
+    ctx.restore();
+  }
+  if (o.scan > 0 && o.scan < 1){ const sy = y + 50 + (h - 60)*o.scan; hline(x + 8, x + w - 8, sy, C.violet, 3); ctx.save(); ctx.globalAlpha *= .12; ctx.fillStyle = C.violet; ctx.fillRect(x + 8, y + 50, w - 16, sy - y - 50); ctx.restore(); }
+  ctx.restore();
+  return {rowY: i => y + 50 + i*rh + rh/2, rh};
+}
+function glowDot(x,y,r,color,a=1){ const g = ctx.createRadialGradient(x,y,0,x,y,r); g.addColorStop(0, rgba(color,.55*a)); g.addColorStop(1, rgba(color,0)); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
+function ring(x,y,k,color,r0=10,r1=60){ if (k<=0||k>=1) return; ctx.save(); ctx.globalAlpha *= (1-k); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x,y,lerp(r0,r1,eo(k)),0,Math.PI*2); ctx.stroke(); ctx.restore(); }
+/* Grouped bar chart. groups = [{name, v:[...]}], series = [{name, color}]; o.k[g] 0..1 grows group g; o.dim[g] fades it; values printed above. */
+function bars(x,y,w,h,groups,series,o={}){
+  const max = o.max ?? 1, gw = w / groups.length, bw = Math.min(64, gw*.32), base = y + h;
+  const a = o.alpha ?? 1; ctx.save(); ctx.globalAlpha *= a;
+  for (const t of (o.ticks || [0,.25,.5,.75,1])){ const ty = base - h*t/max; hline(x, x + w, ty, t ? rgba(C.ink2,.18) : C.ink, t ? 1 : 2); text(t.toFixed(2), x - 14, ty, {size:17, font:F.mono, color:C.mute, align:'right'}); }
+  groups.forEach((g, gi) => {
+    const k = o.k ? o.k[gi] : 1, dim = o.dim ? o.dim[gi] : 0, gx = x + gw*gi + gw/2;
+    ctx.save(); ctx.globalAlpha *= 1 - .75*dim;
+    g.v.forEach((v, si) => { const kk = clamp(k*series.length - si, 0, 1), bh = h * v/max * eio(kk), bx = gx + (si - (series.length-1)/2) * (bw + 8) - bw/2;
+      ctx.fillStyle = series[si].color; ctx.fillRect(bx, base - bh, bw, bh);
+      if (kk > .9) text(v.toFixed(3), bx + bw/2, base - bh - 18, {size:19, font:F.mono, weight:500, color:si ? C.ink : C.ink2, alpha:ramp(kk,.9,1)}); });
+    text(g.name, gx, base + 30, {size:24, font:F.serif, weight:600});
+    ctx.restore();
+  });
+  ctx.restore();
+  return {xOf: gi => x + gw*gi + gw/2, yOf: v => base - h*v/max, bw, gw};
+}
+
+/* ---------- scene helpers shared by every episode ---------- */
+const DEG = Math.PI/180;
+const win = (lt, a, b, fi = .5, fo = .4) => eo(ramp(lt, a, a + fi)) * (1 - ramp(lt, b - fo, b));     // visible from a to b
+function reveal(p, x, y, w, h, fn){ if (p <= 0) return; ctx.save(); ctx.beginPath(); ctx.rect(x, y, w * eio(clamp(p,0,1)), h); ctx.clip(); fn(); ctx.restore(); }
+function chip(s, x, y, o = {}){   // small rounded label; x,y = left-centre unless o.align === 'center'; returns its width
+  const k = o.k ?? 1; if (k <= 0) return 0; const sz = o.size || 22, w = measure(s, {size:sz, font:o.font || F.sans, weight:o.weight || 500}) + 28, h = sz + 18;
+  const x0 = o.align === 'center' ? x - w/2 : x;
+  ctx.save(); ctx.globalAlpha *= eo(clamp(k,0,1)) * (o.alpha ?? 1); rr(x0, y - h/2, w, h, h/2);
+  ctx.fillStyle = o.fill || mixHex(C.card, o.color || C.ink2, .12); ctx.fill(); ctx.lineWidth = 1.6; ctx.strokeStyle = o.color || C.ink2; ctx.stroke();
+  text(s, x0 + w/2, y + 1, {size:sz, font:o.font || F.sans, weight:o.weight || 500, color:o.tcolor || o.color || C.ink});
+  ctx.restore(); return w;
+}
+function check(x, y, s, color, a = 1){ if (a <= 0) return; ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = color; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(x - s, y); ctx.lineTo(x - s*.3, y + s*.7); ctx.lineTo(x + s, y - s*.6); ctx.stroke(); ctx.restore(); }
+function cross(x, y, s, color = C.stamp, a = 1){ if (a <= 0) return; ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = color; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x - s, y - s); ctx.lineTo(x + s, y + s); ctx.moveTo(x + s, y - s); ctx.lineTo(x - s, y + s); ctx.stroke(); ctx.restore(); }
+/* "Guess first" card: the viewer is asked before the answer. lines = the question, one string per line. */
+function guessCard(x, y, w, lines, a, o = {}){
+  if (a <= 0) return; const sz = o.size || 50, h = 150 + lines.length*(sz + 18);
+  card(x, y, w, h, {alpha:a, tilt:o.tilt ?? -.6});
+  text('你猜', x + 50, y + 58, {size:24, font:F.sans, weight:700, color:C.coral, align:'left', alpha:a});
+  lines.forEach((s, i) => text(s, x + 50, y + 120 + i*(sz + 18), {size:sz, font:F.zhSerif, weight:900, align:'left', alpha:a}));
+  text('先停下来想一想', x + 50, y + h - 34, {size:21, font:F.sans, weight:400, color:C.mute, align:'left', alpha:a});
+}
+
+/* ---------- source / config excerpts ----------
+   codeShown() reports an excerpt to the 课件's code index (slides.mjs plays the video through and listens); codeCard
+   calls it itself when more than half visible. lines = [string]; o.hl(i) 0..1 sweeps a highlighter over line i;
+   o.file / o.from / o.to name the real source (file + line range), o.fn the function. Returns the card height. */
+const codeShown = info => { if (window.__codeSink) window.__codeSink(info); };
+function codeCard(x, y, w, title, lines, o = {}){
+  const a = o.alpha ?? 1, lh = o.lh || 40, sz = o.size || 24, h = 86 + lines.length*lh; if (a <= 0) return h;
+  card(x, y, w, h, {alpha:a});
+  ctx.save(); ctx.globalAlpha *= a;
+  text(title, x + 28, y + 34, {size:20, font:F.monoZh, weight:600, color:o.color || C.coral, align:'left'});
+  hline(x + 20, x + w - 20, y + 58, C.rule, 1.2);
+  lines.forEach((l, i) => { const ly = y + 72 + i*lh + lh/2, k = o.hl ? o.hl(i) : 0;
+    if (k > 0) highlight(x + 20, ly - lh*.42, w - 40, lh*.84, k);
+    text(l, x + 28, ly, {size:sz, font:F.mono, weight:500, align:'left'}); });
+  ctx.restore();
+  if (a > .5) codeShown({title, file:o.file, a:o.from, b:o.to, fn:o.fn});
+  return h;
+}

@@ -1,0 +1,20 @@
+[
+ {"id":"open","title":"__EP_TITLE_EN__","zh":"__EP_TITLE__",
+  "visual":"集标题，加上这个系列共用的主图（这里用三块方框示意）；读到「这一集」时点亮本集讲的那一块。",
+  "lines":[
+  ["Episode __EP_N__: __EP_TITLE_EN__.", "第 __EP_N__ 集：__EP_TITLE__。", "", "", "—"],
+  ["One sentence on the question this episode answers.", "一句话说清，这一集回答什么问题。", "", 1.0, "§原文小节"]
+ ]},
+ {"id":"claim","title":"The claim","zh":"原文的观点",
+  "visual":"一张纸面卡片写出观点，读到「观点」时荧光笔划过关键词；读到「证据」时右边弹出一张依据便签。",
+  "lines":[
+  ["State the post's claim in plain words.", "用大白话说出原文的观点。", "", "", "§原文小节"],
+  ["Then the evidence it rests on.", "再说它靠什么证据。", "", "", "图 N"]
+ ]},
+ {"id":"result","title":"Guess, then the numbers","zh":"先猜，再看数字",
+  "visual":"「你猜」卡停 2 秒，卡片完全消失后才出答案：按原文数据重画的柱状图。",
+  "lines":[
+  ["Guess: which one scores higher?", "你猜，哪一个分数更高？", "", "pause"],
+  ["B, by a wide margin: 0.62 against 0.31.", "B，高出一大截：0.62 对 0.31。", "", "", "图 N（示例数字：换成原文的）"]
+ ]}
+]

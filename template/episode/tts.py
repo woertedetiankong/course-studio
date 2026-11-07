@@ -1,7 +1,14 @@
 """Narrate script.json with Gemini TTS (or MiniMax TTS) and write narration.wav + timeline.json.
 
-Each line in script.json is [english, chinese, optional spoken form]. The spoken form fixes
-pronunciation ("M I T", "Map Reduce") without changing the subtitle. Per-line wavs are cached in
+Each line in script.json is [english, chinese, optional spoken form, optional hold, optional source]. The spoken form fixes
+pronunciation ("M I T", "Map Reduce") without changing the subtitle. Hold: "pause" (2 s to guess before the answer) or a
+number of seconds the picture stays after the line. Source: a note for fact-checking, never read or shown.
+
+Narration language: English by default (Chinese subtitles carry the other language), or Chinese with "narration": "zh"
+in the episode's episode.json (new_episode.py --narration zh writes it; NARRATION=zh in the environment or a course .env
+also works). Chinese narration voices the Chinese line (or its spoken form) with MiniMax by default (MINIMAX_VOICE_ZH,
+default Chinese (Mandarin)_Gentleman), and the listen-back check transcribes Chinese. It is lenient: names and numbers
+still need the forced-choice check in references/video-paper.md ("Checking Chinese narration"). Per-line wavs are cached in
 audio/ by a hash of model+voice+style+text, so re-running only pays for lines you changed.
 timeline.json gives every scene its start/duration and every beat (line) its start, which
 scenes.js uses to time animations and sync_content.py turns into video chapters.
@@ -16,7 +23,7 @@ still transcribes with Gemini unless GEMINI_CHECK_MODEL=off. Clips are cached pe
 providers voices every line again, and a course keeps one voice across its episodes.
 No key yet, or just previewing the look? Use silent_timeline.py instead — same outputs, silent audio.
 """
-import json, subprocess, wave, hashlib, os, re, base64, time, urllib.request, urllib.error
+import json, subprocess, wave, hashlib, os, re, sys, base64, time, difflib, urllib.request, urllib.error
 from concurrent.futures import ThreadPoolExecutor
 S = json.load(open('script.json', encoding='utf-8'))
 RATE = 48000
@@ -33,15 +40,19 @@ ENV = {**read_env(GLOBAL_ENV), **read_env(find_env())}  # a course .env override
 cfg = lambda k, default=None: os.environ.get(k) or ENV.get(k) or default
 # GEMINI_API_KEY may list several keys separated by commas; quota is per Google Cloud project, so keys from
 # different projects add up. When one key's daily quota is used up, the next key takes over.
+EP = json.load(open('episode.json', encoding='utf-8')) if os.path.exists('episode.json') else {}
+LANG = (os.environ.get('NARRATION') or EP.get('narration') or cfg('NARRATION') or 'en').lower()
+if LANG not in ('en', 'zh'): raise SystemExit(f'narration must be en or zh, not {LANG}')
+ZH = LANG == 'zh'
 KEYS = [k.strip() for k in (cfg('GEMINI_API_KEY') or cfg('GOOGLE_API_KEY') or '').split(',') if k.strip()]
 KEY = KEYS[0] if KEYS else None
-PROVIDER = (cfg('TTS_PROVIDER') or 'gemini').lower()
+PROVIDER = (cfg('TTS_PROVIDER') or ('minimax' if ZH else 'gemini')).lower()   # Chinese: MiniMax unless told otherwise
 if PROVIDER not in ('gemini', 'minimax'): raise SystemExit(f'TTS_PROVIDER must be gemini or minimax, not {PROVIDER}')
 CHECK_MODEL = cfg('GEMINI_CHECK_MODEL', 'gemini-3.8-flash')
 if not KEY and (PROVIDER == 'gemini' or CHECK_MODEL != 'off'):
     raise SystemExit(f'GEMINI_API_KEY not found: put it in {GLOBAL_ENV}, the course root .env, or the environment')
 MM_KEY = cfg('MINIMAX_API_KEY'); MM_BASE = (cfg('MINIMAX_BASE_URL') or 'https://api.minimax.cn/v1').rstrip('/')
-MM_MODEL = cfg('MINIMAX_TTS_MODEL', 'speech-2.8-turbo'); MM_VOICE = cfg('MINIMAX_VOICE', 'English_expressive_narrator'); MM_SPEED = float(cfg('MINIMAX_SPEED', '1'))
+MM_MODEL = cfg('MINIMAX_TTS_MODEL', 'speech-2.8-turbo'); MM_VOICE = cfg('MINIMAX_VOICE_ZH', 'Chinese (Mandarin)_Gentleman') if ZH else cfg('MINIMAX_VOICE', 'English_expressive_narrator'); MM_SPEED = float(cfg('MINIMAX_SPEED', '1'))
 if PROVIDER == 'minimax' and not MM_KEY: raise SystemExit(f'MINIMAX_API_KEY not found: put it in {GLOBAL_ENV}, the course root .env, or the environment')
 if PROVIDER == 'minimax': MODEL, VOICE = MM_MODEL, MM_VOICE
 else:
@@ -86,11 +97,11 @@ def request(body):
     with wave.open(buf, 'wb') as f: f.setnchannels(1); f.setsampwidth(2); f.setframerate(rate); f.writeframes(raw)
     return buf.getvalue()
 
-def minimax_request(text):
+def minimax_request(text, voice=None):
     # Synchronous t2a_v2: the wav comes back hex-encoded inside JSON; errors can arrive as HTTP 200 with base_resp.status_code != 0
     # (1002 rate limit, 1004 bad key, 1008 no balance, 2013 bad parameter), so both paths are checked.
-    body = json.dumps({'model': MM_MODEL, 'text': text, 'stream': False, 'language_boost': 'English', 'output_format': 'hex',
-        'voice_setting': {'voice_id': MM_VOICE, 'speed': MM_SPEED, 'vol': 1, 'pitch': 0},
+    body = json.dumps({'model': MM_MODEL, 'text': text, 'stream': False, 'language_boost': 'Chinese' if ZH else 'English', 'output_format': 'hex',
+        'voice_setting': {'voice_id': voice or MM_VOICE, 'speed': MM_SPEED, 'vol': 1, 'pitch': 0},
         'audio_setting': {'sample_rate': 32000, 'format': 'wav', 'channel': 1}}).encode()
     for attempt in range(6):
         try:
@@ -118,7 +129,32 @@ def spell(n):  # 39321 → 'thirty nine thousand three hundred twenty one': the 
 spell_digits = lambda x: re.sub(r'\d[\d,]*(\.\d+)?', lambda m: (spell(int(m.group(0).split('.')[0].replace(',', '') or 0)) if m.group(0).split('.')[0].strip(',') else '')
     + (' point ' + ' '.join(ONES[int(c)] for c in m.group(0).split('.')[1]) if '.' in m.group(0) else ''), x)
 words = lambda x: [w for w in re.sub(r"[^a-z ]", ' ', spell_digits(x).lower()).split() if len(w) >= 4]
+def units(s):  # Chinese speaking time in characters: CJK ≈ a syllable, Latin letters fast, digits read out, punctuation = pause
+    w = 0
+    for ch in s:
+        if '\u4e00' <= ch <= '\u9fff': w += 1
+        elif ch.isdigit(): w += 1.3
+        elif ch.isascii() and ch.isalpha(): w += .4
+        elif ch in '，。：；、？！': w += 1.6
+        elif ch == ' ': w += .15
+        else: w += .5
+    return w
+def heard_right_zh(path, text):
+    # Lenient on purpose (similarity ≥ .75): it catches a clip that mumbles, stops halfway or reads something else.
+    # A wrong digit or name can still pass, and an unfamiliar English name is often mis-transcribed although it was
+    # read right, so check those with the forced-choice questions in references/video-paper.md.
+    body = json.dumps({'contents': [{'parts': [
+        {'inlineData': {'mimeType': 'audio/wav', 'data': base64.b64encode(open(path, 'rb').read()).decode()}},
+        {'text': '把这段中文语音逐字转写出来，数字用阿拉伯数字，英文保持英文。只输出转写文本。'}]}]}).encode()
+    try: got = call(CHECK_MODEL, body)['candidates'][0]['content']['parts'][0]['text']
+    except (KeyError, IndexError): got = ''
+    if not got.strip(): print(f'  (no transcript for "{text[:30]}", will re-check next run)'); return None
+    norm = lambda x: re.sub(r'[^\w]', '', x.lower())
+    r = difflib.SequenceMatcher(None, norm(text), norm(got)).ratio()
+    if r < .75: print(f'  mismatch {r:.2f} for "{text[:30]}": heard "{got.strip()[:60]}"')
+    return r >= .75
 def heard_right(path, text):
+    if ZH and CHECK_MODEL != 'off': return heard_right_zh(path, text)
     # The TTS model sometimes reads the director's notes aloud ("...to a fellow engineer, natural, brisk but unhurried pace...")
     # while staying under the length limit, so listen back: transcribe the clip and compare the words.
     if CHECK_MODEL == 'off': return True
@@ -147,7 +183,7 @@ def speak(text, path):
     body_for = lambda prompt: json.dumps({'contents': [{'parts': [{'text': prompt}]}],
         'generationConfig': {'responseModalities': ['AUDIO'],
             'speechConfig': {'voiceConfig': {'prebuiltVoiceConfig': {'voiceName': VOICE}}}}}).encode()
-    limit = 3 + len(text.split()) * 0.75  # ~80 wpm floor; longer means the model rambled or read the notes
+    limit = 3 + (units(text) / 2.5 if ZH else len(text.split()) * 0.75)  # far slower than speech: the model rambled or read the notes
     for attempt in range(4):
         # some lines keep pulling the notes into the speech; the last two tries send the bare line (same voice)
         # fetch before opening: open() truncates, and a quota exit would leave a 0-byte "cached" file
@@ -160,15 +196,27 @@ def speak(text, path):
         if r is not False: return
     print(f'  WARNING: "{text[:60]}" still too long or misread — listen to {path}, or reword the line')
 
-said = lambda l: l[2] if len(l) > 2 and l[2] else l[0]
-paused = lambda l: len(l) > 3 and l[3] == 'pause'
+said = lambda l: l[2] if len(l) > 2 and l[2] else (l[1] if ZH else l[0])
+def held(l):  # 4th element: 'pause' (time to guess) or seconds the picture stays after the line
+    v = l[3] if len(l) > 3 else None
+    return PAUSE if v == 'pause' else float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else 0.0
+
+if len(sys.argv) > 2 and sys.argv[1] == '--voices':   # audition: the first line in each voice → voices/<voice>.wav
+    os.makedirs('voices', exist_ok=True); line = said(S[0]['lines'][0])
+    for v in sys.argv[2:]:
+        if PROVIDER == 'minimax': data = minimax_request(line, v)
+        else: data = request(json.dumps({'contents': [{'parts': [{'text': line}]}], 'generationConfig': {'responseModalities': ['AUDIO'],
+            'speechConfig': {'voiceConfig': {'prebuiltVoiceConfig': {'voiceName': v}}}}}).encode())
+        p = f'voices/{re.sub(r"[^A-Za-z0-9_-]+", "_", v)}.wav'; open(p, 'wb').write(data); print('wrote', p)
+    raise SystemExit
+
 jobs = []
 for si, sc in enumerate(S):
     for li, line in enumerate(sc['lines']):
         h = hashlib.sha1(f'{MODEL}|{VOICE}|{STYLE if PROVIDER == "gemini" else ""}|{said(line)}'.encode()).hexdigest()[:8]
         jobs.append((si, li, said(line), f'audio/{h}.src.wav'))  # keyed by text only: moving a line keeps its clip
 todo = [j for j in jobs if not os.path.exists(j[3] + '.ok')]  # new, or cached but never checked
-print(f'{len(jobs)} lines, {len(todo)} to synthesize ({PROVIDER} {MODEL}, voice {VOICE})')
+print(f'{len(jobs)} lines, {len(todo)} to synthesize ({LANG} narration, {PROVIDER} {MODEL}, voice {VOICE})')
 with ThreadPoolExecutor(4) as ex:
     for n, _ in enumerate(ex.map(lambda j: speak(j[2], j[3]), todo), 1):
         if n % 10 == 0: print(f'  {n}/{len(todo)}')
@@ -184,8 +232,8 @@ for si, sc in enumerate(S):
             'silenceremove=start_periods=1:start_threshold=-50dB,areverse,silenceremove=start_periods=1:start_threshold=-50dB,areverse',
             '-ar', str(RATE), '-ac', '1', '-sample_fmt', 's16', w], check=True)
         with wave.open(w) as f: data = f.readframes(f.getnframes()); d = f.getnframes() / RATE
-        hold = PAUSE if paused(line) else 0.0
-        beats.append({'text': line[0], 'zh': line[1], 'start': round(t - start, 3), 'dur': round(d + hold, 3)})
+        hold = held(line)   # speech = the voice alone (scenes time words inside a line with it), dur = speech + hold
+        beats.append({'text': line[0], 'zh': line[1], 'start': round(t - start, 3), 'dur': round(d + hold, 3), 'speech': round(d, 3)})
         pcm += data + sil(hold); t += d + hold
         g = GAP if li < len(sc['lines']) - 1 else TAIL
         pcm += sil(g); t += g

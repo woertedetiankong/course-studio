@@ -22,11 +22,13 @@ const shoot = t => p.evaluate(t => {
   render(t); const x = __th.getContext('2d', {willReadFrequently: true}); x.drawImage(cv, 0, 150, 1920, 930, 0, 0, 192, 93);
   const d = x.getImageData(0, 0, 192, 93).data; let s = 0;
   if (__prev) for (let i = 0; i < d.length; i += 4) s += Math.abs(d[i] - __prev[i]) + Math.abs(d[i+1] - __prev[i+1]) + Math.abs(d[i+2] - __prev[i+2]);
-  // additive: of the pixels that changed, almost none held content before (they were dark ground or panel fill)
-  let ch = 0, lost = 0;
+  // additive: of the pixels that changed, almost none held content before (they were plain ground or panel fill).
+  // Ground is dark in the 3b1b style (content = brighter than 70) and light paper in the paper style (content = clearly
+  // darker than the paper); which one is read off the top-left corner of the content area.
+  let ch = 0, lost = 0; const lum = (a, i) => .3 * a[i] + .59 * a[i+1] + .11 * a[i+2], dark = lum(d, 0) < 128;
   if (__prev) for (let i = 0; i < d.length; i += 4) {
     if (Math.max(Math.abs(d[i] - __prev[i]), Math.abs(d[i+1] - __prev[i+1]), Math.abs(d[i+2] - __prev[i+2])) < 40) continue;
-    ch++; if (.3 * __prev[i] + .59 * __prev[i+1] + .11 * __prev[i+2] > 70) lost++;
+    ch++; if (dark ? lum(__prev, i) > 70 : lum(__prev, i) < lum(d, 0) - 45) lost++;
   }
   const diff = __prev ? s / (d.length / 4 * 3) : 1e9, additive = ch > 0 && lost / ch < .05;
   return {diff, additive, img: cv.toDataURL('image/jpeg', .85), sig: Array.from(d)};
