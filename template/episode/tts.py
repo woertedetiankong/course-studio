@@ -7,9 +7,9 @@ number of seconds the picture stays after the line. Source: a note for fact-chec
 Narration language: English by default (Chinese subtitles carry the other language), or Chinese with "narration": "zh"
 in the episode's episode.json (new_episode.py --narration zh writes it; NARRATION=zh in the environment or a course .env
 also works). Chinese narration voices the Chinese line (or its spoken form) with MiniMax by default (MINIMAX_VOICE_ZH,
-default Chinese (Mandarin)_Gentleman), and the listen-back check transcribes Chinese. It is lenient: names and numbers
-still need the forced-choice check in references/video-paper.md ("Checking Chinese narration"). Per-line wavs are cached in
-audio/ by a hash of model+voice+style+text, so re-running only pays for lines you changed.
+default Chinese (Mandarin)_Gentleman), and the listen-back check transcribes Chinese (numbers written out in Chinese
+are compared as digits). It is lenient: names and numbers still need the forced-choice check in references/video-paper.md
+("Checking Chinese narration"). Per-line wavs are cached in audio/ by a hash of model+voice+style+text, so re-running only pays for lines you changed.
 timeline.json gives every scene its start/duration and every beat (line) its start, which
 scenes.js uses to time animations and sync_content.py turns into video chapters.
 
@@ -139,6 +139,25 @@ def units(s):  # Chinese speaking time in characters: CJK ≈ a syllable, Latin 
         elif ch == ' ': w += .15
         else: w += .5
     return w
+ZH_NUM, ZH_DIGIT = '零〇一二两三四五六七八九十百千万亿', {**{c: i for i, c in enumerate('零一二三四五六七八九')}, '〇': 0, '两': 2}
+def zh_int(s):  # 二百二十五 → 225, 一百零三 → 103, 十二万 → 120000; no units → digit by digit (二〇二六 → 2026)
+    if all(c in ZH_DIGIT for c in s): return ''.join(str(ZH_DIGIT[c]) for c in s)
+    total = section = num = 0
+    for c in s:
+        if c in ZH_DIGIT: num = ZH_DIGIT[c]
+        elif c in '十百千': section += (num or 1) * 10 ** ('十百千'.index(c) + 1); num = 0
+        elif c == '万': total += (section + num) * 10 ** 4; section = num = 0
+        else: total = (total + section + num) * 10 ** 8; section = num = 0   # 亿
+    return str(total + section + num)
+def zh_digits(x):
+    # Chinese numerals → Arabic digits. A spoken form often writes numbers out (五十七, 百分之七十二, 零点七五) while the
+    # transcriber writes 57, 72%, 0.75, which used to drop a correct clip under the threshold. Both sides go through this,
+    # so words that merely contain a numeral (一样, 一楼) turn into the same thing on each side and still match.
+    x = re.sub(rf'百分之([{ZH_NUM}点\d.]+)', r'\1%', x)                                        # 百分之七十二 → 七十二%
+    x = re.sub(rf'([{ZH_NUM}]+)分之([{ZH_NUM}]+)', lambda m: f'{m[2]}/{m[1]}', x)               # 三分之二 → 二/三
+    x = re.sub(rf'([{ZH_NUM}]+)点([零〇一二三四五六七八九]+)(?![十百千万亿])',                       # 零点七五 → 0.75 (not 八点三十)
+               lambda m: zh_int(m[1]) + '.' + ''.join(str(ZH_DIGIT[c]) for c in m[2]), x)
+    return re.sub(rf'[{ZH_NUM}]+', lambda m: zh_int(m[0]), x)
 def heard_right_zh(path, text):
     # Lenient on purpose (similarity ≥ .75): it catches a clip that mumbles, stops halfway or reads something else.
     # A wrong digit or name can still pass, and an unfamiliar English name is often mis-transcribed although it was
@@ -149,7 +168,7 @@ def heard_right_zh(path, text):
     try: got = call(CHECK_MODEL, body)['candidates'][0]['content']['parts'][0]['text']
     except (KeyError, IndexError): got = ''
     if not got.strip(): print(f'  (no transcript for "{text[:30]}", will re-check next run)'); return None
-    norm = lambda x: re.sub(r'[^\w]', '', x.lower())
+    norm = lambda x: re.sub(r'[^\w]', '', zh_digits(x).lower())
     r = difflib.SequenceMatcher(None, norm(text), norm(got)).ratio()
     if r < .75: print(f'  mismatch {r:.2f} for "{text[:30]}": heard "{got.strip()[:60]}"')
     return r >= .75
