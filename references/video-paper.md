@@ -21,6 +21,17 @@ A course keeps one style for all its episodes unless its plan says otherwise; re
 - **Narration**: Chinese by default (MiniMax `speech-2.8-turbo`, voice `Chinese (Mandarin)_Gentleman`), English subtitles beneath the Chinese ones; or English narration (`--narration en`, same voices as the 3b1b style). Keep one voice across a series.
 - **Five meaning colours** (`C.slate`, `C.coral`, `C.teal`, `C.amber`, `C.violet`), each tied to one idea of the series (a layer, an actor, a kind of data) and never used for anything else. Alias them in the series part file (`Object.assign(C, {notes: C.coral})`). `C.hi` is the highlighter, `C.stamp` the red of stamps and ✗.
 
+## Logic and framework pictures, compact pages
+
+Viewers of the paper style, relayed by the user on 2026-11-10 (the same day robot-course learners said the same of the 3b1b videos): more logic diagrams and framework diagrams, compact pages, and a hard principle explained with a concrete picture and its text together. `video.md` "Conclusion first, on one framework page" and "A picture where the logic is hard, a line where it is simple" apply here too; what differs for a paper:
+
+- **The conclusion first.** Right after the open, the episode's claim in one or two plain sentences, with no term that has not been taught yet.
+- **One framework page per episode**, built up part by part as it is narrated. For a mechanism (a model, a training recipe, a pipeline): what goes in, the steps in order, every branch or condition, what comes out, with the running example's real numbers on it. For an argument: the claim, what was tested, against what, the numbers, what follows from them, as one logic diagram. It is not the series' shared picture: the shared picture says where this episode sits in the post, the framework page says how this episode's claim works. The recap is told on it, each takeaway lighting its part; a mid-way "so far" too when the episode is long. No text cards on an empty page for a summary.
+- **A hard principle gets a concrete picture with its text on it**: the toy or real numbers drawn where they act (the value on the arrow it travels along, the condition on the branch it decides, the formula's term beside the part of the picture it measures), on one page. Not a card of prose beside an icon, and not a picture on one page with its explanation on the next.
+- **Compact pages.** What belongs together stays on one page and is built up line by line: a mechanism's steps, the cases being compared, a chart with the reading of it. Do not spread one idea thinly over several near-empty pages; one new thing per spoken line still holds. The whole page is the overview, not the reading size: when a page holds everything, enlarge the part being narrated (robot-course ep24a `camPath`: a clipped, scaled window on the page) and check frames at player size.
+- **Simple things get a line, not a diagram.** An icon row or a decorative card on a point one sentence already makes lowers the quality.
+- **The honesty rules cover these pictures.** A framework page is a redraw: every box, arrow and number on it is traceable to a section or figure, and a link the original does not state is not drawn (or is drawn dashed and labelled 示意).
+
 ## Hardcore depth (硬核图解): for technical papers and technical viewers
 
 The defaults above suit an essay read by a general audience. When the source is a technical paper and the viewers want to *learn the field* (π0.7 series, 2026-11-09: learners who know deep learning but not robotics, plus robotics practitioners; the brief was "硬核加上通俗易懂"), keep the paper look and take the teaching rules from `video.md` "Hardcore and learnable". Record `depth: hardcore` and the audience in the plan.
@@ -65,7 +76,7 @@ Added 2026-11-09 for the π0.7 series: a robotics paper's strongest evidence is 
 
 ## Scene arc and pacing
 
-- Episode: **open** (episode title, a note card with last episode's takeaway, the shared picture full size with this episode's part lit; `NOHEADER = ['open']`) → **setup** (the test or the case) → story scenes → a **guess card** (`guessCard`, line marked `"pause"`: the card is fully gone before the answer appears) → the **reveal** on a redrawn chart → what it means → **recap** (three numbered cards, then a card for the next episode).
+- Episode: **open** (episode title, a note card with last episode's takeaway, the shared picture full size with this episode's part lit; `NOHEADER = ['open']`) → **the conclusion and the framework page** ("Logic and framework pictures" above) → **setup** (the test or the case) → story scenes → a **guess card** (`guessCard`, line marked `"pause"`: the card is fully gone before the answer appears) → the **reveal** on a redrawn chart → what it means → **recap** (three takeaways told on the framework page, then a card for the next episode).
 - Scene: one claim. Each element lands on the word that names it: `cue(i, '词')` (character-position estimate, close enough after voicing), `lineEnd(i)` for things that follow a line.
 - At most two phases per scene; between them, **fade out, then in** (`A = 1 - eo(ramp(lt, t - .45, t - .05))`, `B = eo(ramp(lt, t - .05, t + .4))`), never a crossfade where two layouts overlap.
 - A line whose picture needs time (a quote typing out, a chart growing) gets a hold: 4th element in seconds (5.5 for a two-line quote with its translation).
