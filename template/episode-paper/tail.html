@@ -60,6 +60,7 @@ var ready = (async () => {
     document.fonts.load(`italic 400 26px ${F.serif}`), document.fonts.load(`italic 500 26px ${F.serif}`),
     document.fonts.load(`400 20px ${F.mono}`), document.fonts.load(`500 34px ${F.mono}`), document.fonts.load(`600 24px ${F.mono}`)]);
     await document.fonts.ready; } catch(e){}
+  await loadMedia();   // quoted footage (media_data.js) must be decoded before the first frame
   return true;
 })();
 

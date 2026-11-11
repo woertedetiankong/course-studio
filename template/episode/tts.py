@@ -14,12 +14,14 @@ timeline.json gives every scene its start/duration and every beat (line) its sta
 scenes.js uses to time animations and sync_content.py turns into video chapters.
 
 Config, first match wins: environment → nearest .env above this folder → ~/.config/course-studio/.env.
-Keys: GEMINI_API_KEY (required), GEMINI_TTS_MODEL, GEMINI_VOICE, GEMINI_TTS_STYLE (default: a senior engineer talking to a peer),
-GEMINI_CHECK_MODEL (transcribes every new clip to catch the TTS reading the style notes aloud; 'off' to skip).
+Keys: GEMINI_API_KEY (for Gemini voices, and for the Gemini ear), GEMINI_TTS_MODEL, GEMINI_VOICE, GEMINI_TTS_STYLE (default: a senior
+engineer talking to a peer). Listen-back check (asr.py): every new clip is transcribed and compared with its line, by Gemini
+(GEMINI_CHECK_MODEL) and/or MiniMax ASR (asr-1.0). CHECK_PROVIDER=auto (default: Gemini, falling back to MiniMax when Gemini
+has no key or runs out of credit mid-run) | both (two ears; disagreements → check_disagree.txt for a human) | gemini | minimax | off.
 TTS_PROVIDER=minimax switches the voice to MiniMax (speech-2.8-turbo on the China site by default): MINIMAX_API_KEY (required),
 MINIMAX_BASE_URL (https://api.minimax.cn/v1; the international site is https://api.minimax.io/v1), MINIMAX_TTS_MODEL,
 MINIMAX_VOICE (English_expressive_narrator), MINIMAX_SPEED (1). Billed per character, no daily request cap; the clip check
-still transcribes with Gemini unless GEMINI_CHECK_MODEL=off. Clips are cached per provider+model+voice, so switching
+is heard by the ears CHECK_PROVIDER picks. Clips are cached per provider+model+voice, so switching
 providers voices every line again, and a course keeps one voice across its episodes.
 No key yet, or just previewing the look? Use silent_timeline.py instead — same outputs, silent audio.
 """
@@ -49,8 +51,11 @@ KEY = KEYS[0] if KEYS else None
 PROVIDER = (cfg('TTS_PROVIDER') or ('minimax' if ZH else 'gemini')).lower()   # Chinese: MiniMax unless told otherwise
 if PROVIDER not in ('gemini', 'minimax'): raise SystemExit(f'TTS_PROVIDER must be gemini or minimax, not {PROVIDER}')
 CHECK_MODEL = cfg('GEMINI_CHECK_MODEL', 'gemini-3.8-flash')
-if not KEY and (PROVIDER == 'gemini' or CHECK_MODEL != 'off'):
+if not KEY and PROVIDER == 'gemini':
     raise SystemExit(f'GEMINI_API_KEY not found: put it in {GLOBAL_ENV}, the course root .env, or the environment')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from asr import Ears
+EARS = Ears(cfg, 'zh' if ZH else 'en')
 MM_KEY = cfg('MINIMAX_API_KEY'); MM_BASE = (cfg('MINIMAX_BASE_URL') or 'https://api.minimax.cn/v1').rstrip('/')
 MM_MODEL = cfg('MINIMAX_TTS_MODEL', 'speech-2.8-turbo'); MM_VOICE = cfg('MINIMAX_VOICE_ZH', 'Chinese (Mandarin)_Gentleman') if ZH else cfg('MINIMAX_VOICE', 'English_expressive_narrator'); MM_SPEED = float(cfg('MINIMAX_SPEED', '1'))
 if PROVIDER == 'minimax' and not MM_KEY: raise SystemExit(f'MINIMAX_API_KEY not found: put it in {GLOBAL_ENV}, the course root .env, or the environment')
@@ -103,7 +108,7 @@ def minimax_request(text, voice=None):
     body = json.dumps({'model': MM_MODEL, 'text': text, 'stream': False, 'language_boost': 'Chinese' if ZH else 'English', 'output_format': 'hex',
         'voice_setting': {'voice_id': voice or MM_VOICE, 'speed': MM_SPEED, 'vol': 1, 'pitch': 0},
         'audio_setting': {'sample_rate': 32000, 'format': 'wav', 'channel': 1}}).encode()
-    for attempt in range(6):
+    for attempt in range(9):   # rate limits (1002 RPM) get longer waits: voicing and the MiniMax ear share one account's RPM
         try:
             req = urllib.request.Request(MM_BASE + '/t2a_v2', body, {'Authorization': f'Bearer {MM_KEY}', 'Content-Type': 'application/json'})
             d = json.load(urllib.request.urlopen(req, timeout=120))
@@ -115,7 +120,7 @@ def minimax_request(text, voice=None):
             raise
         code = d.get('base_resp', {}).get('status_code', -1)
         if code == 0 and d.get('data', {}).get('audio'): return bytes.fromhex(d['data']['audio'])
-        if code == 1002 and attempt < 5: time.sleep(2 ** attempt * 3); continue  # rate limit: wait and retry
+        if code == 1002 and attempt < 8: time.sleep(min(60, 2 ** attempt * 3)); continue  # rate limit: wait and retry
         raise SystemExit(f'MiniMax {MM_MODEL} {code}: {str(d.get("base_resp", {}).get("status_msg", ""))[:400]}')
 
 ONES = 'zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen'.split()
@@ -153,43 +158,54 @@ def zh_digits(x):
     # Chinese numerals → Arabic digits. A spoken form often writes numbers out (五十七, 百分之七十二, 零点七五) while the
     # transcriber writes 57, 72%, 0.75, which used to drop a correct clip under the threshold. Both sides go through this,
     # so words that merely contain a numeral (一样, 一楼) turn into the same thing on each side and still match.
+    x = x.replace('百分位', '%位')                                                               # 第十五百分位 → 第十五%位 (a word, not 百)
     x = re.sub(rf'百分之([{ZH_NUM}点\d.]+)', r'\1%', x)                                        # 百分之七十二 → 七十二%
     x = re.sub(rf'([{ZH_NUM}]+)分之([{ZH_NUM}]+)', lambda m: f'{m[2]}/{m[1]}', x)               # 三分之二 → 二/三
-    x = re.sub(rf'([{ZH_NUM}]+)点([零〇一二三四五六七八九]+)(?![十百千万亿])',                       # 零点七五 → 0.75 (not 八点三十)
+    x = re.sub(rf'([{ZH_NUM}]+)点([零〇一二三四五六七八九]+)(?![十百千])',                       # 零点七五 → 0.75 (not 八点三十)
                lambda m: zh_int(m[1]) + '.' + ''.join(str(ZH_DIGIT[c]) for c in m[2]), x)
-    return re.sub(rf'[{ZH_NUM}]+', lambda m: zh_int(m[0]), x)
+    return re.sub(rf'[{ZH_NUM}]+', lambda m: zh_int(m[0]) if any(c in ZH_DIGIT or c == '十' for c in m[0]) else m[0], x)   # a lone 万 / 亿 is a unit, not 0
+DISAGREE_LOCK = __import__('threading').Lock()
+def judge(path, text, ok_fn, show):
+    # Every active ear (asr.py) transcribes the clip once. All right → True; all wrong → False (voice it again);
+    # they disagree → True, but the clip goes to check_disagree.txt with both transcripts for a human ear.
+    verdicts, tried = {}, set()
+    while True:            # re-read the active ears: if Gemini runs out on this very clip, MiniMax still hears it
+        todo = [p for p in EARS.active() if p not in tried]
+        if not todo: break
+        for p in todo:
+            tried.add(p); got = EARS.hear(path, p)
+            if got and got.strip(): verdicts[p] = (ok_fn(got), got.strip())
+    if not verdicts: print(f'  (no transcript for "{text[:30]}", will re-check next run)'); return None
+    for p, (ok, got) in verdicts.items():
+        if not ok: print(f'  mismatch ({p}) for "{show(text)}": heard "{got[:70]}"')
+    oks = [ok for ok, _ in verdicts.values()]
+    if all(oks): return True
+    if not any(oks): return False
+    with DISAGREE_LOCK, open('check_disagree.txt', 'a', encoding='utf-8') as f:
+        f.write(f'{path}\n  line : {text}\n' + ''.join(f'  {p:<7}: {"ok " if ok else "BAD"} {got}\n' for p, (ok, got) in verdicts.items()) + '\n')
+    print(f'  ears disagree on "{show(text)}": kept, listed in check_disagree.txt — listen to {path}')
+    return True
 def heard_right_zh(path, text):
     # Lenient on purpose (similarity ≥ .75): it catches a clip that mumbles, stops halfway or reads something else.
     # A wrong digit or name can still pass, and an unfamiliar English name is often mis-transcribed although it was
-    # read right, so check those with the forced-choice questions in references/video-paper.md.
-    body = json.dumps({'contents': [{'parts': [
-        {'inlineData': {'mimeType': 'audio/wav', 'data': base64.b64encode(open(path, 'rb').read()).decode()}},
-        {'text': '把这段中文语音逐字转写出来，数字用阿拉伯数字，英文保持英文。只输出转写文本。'}]}]}).encode()
-    try: got = call(CHECK_MODEL, body)['candidates'][0]['content']['parts'][0]['text']
-    except (KeyError, IndexError): got = ''
-    if not got.strip(): print(f'  (no transcript for "{text[:30]}", will re-check next run)'); return None
+    # read right: recheck.py and the forced-choice questions in references/video-paper.md look closer.
     norm = lambda x: re.sub(r'[^\w]', '', zh_digits(x).lower())
-    r = difflib.SequenceMatcher(None, norm(text), norm(got)).ratio()
-    if r < .75: print(f'  mismatch {r:.2f} for "{text[:30]}": heard "{got.strip()[:60]}"')
-    return r >= .75
+    def ok(got):
+        r = difflib.SequenceMatcher(None, norm(text), norm(got)).ratio()
+        return r >= .75
+    return judge(path, text, ok, lambda t: t[:30])
 def heard_right(path, text):
-    if ZH and CHECK_MODEL != 'off': return heard_right_zh(path, text)
+    if EARS.mode == 'off': return True
+    if ZH: return heard_right_zh(path, text)
     # The TTS model sometimes reads the director's notes aloud ("...to a fellow engineer, natural, brisk but unhurried pace...")
     # while staying under the length limit, so listen back: transcribe the clip and compare the words.
-    if CHECK_MODEL == 'off': return True
-    body = json.dumps({'contents': [{'parts': [
-        {'inlineData': {'mimeType': 'audio/wav', 'data': base64.b64encode(open(path, 'rb').read()).decode()}},
-        {'text': 'Transcribe this English speech exactly, word for word. Output only the transcript.'}]}]}).encode()
-    try: got = call(CHECK_MODEL, body)['candidates'][0]['content']['parts'][0]['text']
-    except (KeyError, IndexError): got = ''  # no transcript (blocked/empty): count as a mismatch
-    if not got.strip(): print(f'  (no transcript for "{text[:50]}", will re-check next run)'); return None
+    return judge(path, text, lambda got: heard_ok_en(text, got), lambda t: t[:50])
+def heard_ok_en(text, got):
     want, heard = words(text), words(got)
     # lenient on purpose: digits vs spelled numbers and "CANopen" vs "CAN open" differ in harmless ways;
     # what we catch is leaked notes, a clip that rambles on, or one that stops halfway
     leaked = PROVIDER == 'gemini' and any(w in heard and w not in want for w in words(STYLE))  # MiniMax gets no notes
-    ok = not leaked and len(heard) <= len(want) * 1.4 + 3 and len(heard) >= len(want) * 0.5
-    if not ok: print(f'  mismatch for "{text[:50]}": heard "{got.strip()[:90]}"')
-    return ok
+    return not leaked and len(heard) <= len(want) * 1.4 + 3 and len(heard) >= len(want) * 0.5
 
 def speak(text, path):
     ok = path + '.ok'  # marker: this clip was transcribed and matched; cached clips without it get checked once
@@ -235,7 +251,7 @@ for si, sc in enumerate(S):
         h = hashlib.sha1(f'{MODEL}|{VOICE}|{STYLE if PROVIDER == "gemini" else ""}|{said(line)}'.encode()).hexdigest()[:8]
         jobs.append((si, li, said(line), f'audio/{h}.src.wav'))  # keyed by text only: moving a line keeps its clip
 todo = [j for j in jobs if not os.path.exists(j[3] + '.ok')]  # new, or cached but never checked
-print(f'{len(jobs)} lines, {len(todo)} to synthesize ({LANG} narration, {PROVIDER} {MODEL}, voice {VOICE})')
+print(f'{len(jobs)} lines, {len(todo)} to synthesize ({LANG} narration, {PROVIDER} {MODEL}, voice {VOICE}; {EARS.describe()})')
 with ThreadPoolExecutor(4) as ex:
     for n, _ in enumerate(ex.map(lambda j: speak(j[2], j[3]), todo), 1):
         if n % 10 == 0: print(f'  {n}/{len(todo)}')

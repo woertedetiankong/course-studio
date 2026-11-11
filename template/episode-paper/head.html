@@ -303,6 +303,48 @@ function guessCard(x, y, w, lines, a, o = {}){
   text('先停下来想一想', x + 50, y + h - 34, {size:21, font:F.sans, weight:400, color:C.mute, align:'left', alpha:a});
 }
 
+/* ---------- quoted footage and figures from the original (media.py → media_data.js) ----------
+   footage(id, x, y, w, o) draws one entry of media.json as a photo pinned to the paper, its credit always beneath it
+   (references/video-paper.md, "Quoting the original"). Frames are preloaded before render(0) (tail.html awaits loadMedia(); media_data.js is stitched in after this file, so loading waits until then),
+   so a clip is drawn by frame index from o.t (seconds into the clip, scene-local: e.g. lt - b[2]) and the video stays
+   deterministic. o: t, rate (playback speed, default 1), loop (else holds the last frame), alpha, tilt, h (fixed height,
+   fits inside w×h), marks [[x,y,w,h, p, color]] boxes over the picture in fractions of it (p 0..1 draws the box in),
+   tag (top-left chip, default '原片' for clips / '原图' for images), credit:false only when the credit is on screen elsewhere.
+   Returns {x, y, w, h} of the picture. */
+var MEDIA = {};
+async function loadMedia(){
+  if (typeof MEDIA_SRC === 'undefined') return;
+  await Promise.all(Object.entries(MEDIA_SRC).map(async ([id, m]) => {
+    const imgs = await Promise.all(m.frames.map(u => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = u; })));
+    MEDIA[id] = {...m, imgs};
+  }));
+}
+function footage(id, x, y, w, o = {}){
+  const m = MEDIA[id]; if (!m){ console.error(`footage: no media '${id}' (run media.py, then build.py)`); return {x, y, w, h:0}; }
+  const a = o.alpha ?? 1; let pw = w, ph = w * m.h / m.w;
+  if (o.h && ph > o.h){ ph = o.h; pw = ph * m.w / m.h; }
+  const px = x + (w - pw)/2, py = y, pad = 14;
+  if (a <= 0) return {x:px, y:py, w:pw, h:ph};
+  let fi = 0; const n = m.imgs.length;
+  if (n > 1){ const f = Math.floor(Math.max(0, o.t ?? 0) * (o.rate ?? 1) * m.fps); fi = o.loop ? f % n : Math.min(f, n - 1); }
+  ctx.save(); ctx.globalAlpha *= a;
+  if (o.tilt){ ctx.translate(px + pw/2, py + ph/2); ctx.rotate(o.tilt*DEG); ctx.translate(-px - pw/2, -py - ph/2); }
+  const cf = {size:17, font:F.monoZh, weight:500}, cUrl = m.url.replace(/^https?:\/\/(www\.)?/, ''), cOne = '来源：' + m.credit + '  ·  ' + cUrl;
+  const cTwo = o.credit !== false && measure(cOne, cf) > pw;      // a narrow picture: the URL goes on a second line
+  card(px - pad, py - pad, pw + pad*2, ph + pad*2 + (o.credit === false ? 0 : cTwo ? 60 : 38), {fill:'#FFFFFF', r:4});
+  ctx.drawImage(m.imgs[fi], px, py, pw, ph);
+  ctx.lineWidth = 1; ctx.strokeStyle = rgba(C.ink, .25); ctx.strokeRect(px, py, pw, ph);
+  for (const [mx, my, mw, mh, p = 1, col = C.stamp] of (o.marks || [])){ if (p <= 0) continue;
+    ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 5; ctx.setLineDash([2400]); ctx.lineDashOffset = 2400 * (1 - eio(clamp(p, 0, 1)));
+    rr(px + mx*pw, py + my*ph, mw*pw, mh*ph, 6); ctx.stroke(); ctx.restore(); }
+  const tag = o.tag ?? (m.kind === 'clip' ? '原片' : '原图');
+  if (tag) chip(tag + (m.speed ? ' · ' + m.speed : ''), px + 14, py + 30, {size:18, font:F.sans, weight:700, color:C.stamp, fill:'rgba(255,255,255,.88)'});
+  if (o.credit !== false){ if (cTwo){ text('来源：' + m.credit, px, py + ph + 30, {...cf, color:C.ink2, align:'left'}); text(cUrl, px, py + ph + 52, {...cf, color:C.ink2, align:'left'}); }
+    else text(cOne, px, py + ph + 30, {...cf, color:C.ink2, align:'left'}); }
+  ctx.restore();
+  return {x:px, y:py, w:pw, h:ph};
+}
+
 /* ---------- source / config excerpts ----------
    codeShown() reports an excerpt to the 课件's code index (slides.mjs plays the video through and listens); codeCard
    calls it itself when more than half visible. lines = [string]; o.hl(i) 0..1 sweeps a highlighter over line i;

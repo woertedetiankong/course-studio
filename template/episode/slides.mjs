@@ -68,10 +68,18 @@ const code = await p.evaluate(total => {
 code.splice(0, code.length, ...code.filter(c => c.file || /\.(c|h|cpp|py|go|ts|js|rs|m|json)\b|\(\)/.test(c.title || '')));
 for (const c of code) { const f = (c.fn || '').split(' · ')[0].trim(); c.fn = /^[A-Za-z_][\w.>\-]*(\[\]|\(\))?$/.test(f) ? f : ''; }
 for (const c of code) { const sc = TL.scenes[sceneAt(c.t)]; c.scene = sc.id; c.slide = slides.reduce((k, sl, i) => sl.t <= c.t + .01 ? i : k, 0); }
-// Practice page: practice.json {questions: [{q, a, why: [zh, en], scene?, src?: ['file:line'], run?, reasoned?}]}
-let practice = null;
+// Practice page: practice.json {kind?: 'code' | 'paper', sections?: [{sec, what: [zh, en], scene?}], questions: [{q, a, why: [zh, en], scene?, new?, src?: ['file:line' | '§V-C'], run?, reasoned?}]}
+// scene links the question to that moment of the video; new: true marks a question the video itself doesn't ask (still linked)
+// kind 'paper' (a paper-style course): answers rest on the paper's sections, figures or a hand calculation, not on source lines;
+// sections → a "本集对应原文 / Paper map" page: which part of the paper each part of the episode covers, with a link into the video.
+let practice = null, practiceKind = 'code', sections = null;
 if (fs.existsSync('practice.json')) {
-  practice = JSON.parse(fs.readFileSync('practice.json', 'utf8')).questions;
+  const P = JSON.parse(fs.readFileSync('practice.json', 'utf8'));
+  practice = P.questions; practiceKind = P.kind === 'paper' ? 'paper' : 'code';
+  if (P.sections){ sections = P.sections;
+    for (const [i, x] of sections.entries()){
+      if (!x.sec || !Array.isArray(x.what) || x.what.length !== 2) throw new Error(`practice.json section ${i + 1}: needs sec and what: [中文, English]`);
+      if (x.scene){ const sc = TL.scenes.find(s => s.id === x.scene); if (!sc) throw new Error(`practice.json section ${i + 1}: unknown scene ${x.scene}`); x.t = sc.start; } } }
   for (const [i, q] of practice.entries()) {
     for (const k of ['q', 'a', 'why']) if (!Array.isArray(q[k]) || q[k].length !== 2 || !q[k][0] || !q[k][1]) throw new Error(`practice.json question ${i + 1}: ${k} must be [中文, English]`);
     if (q.scene) { const sc = TL.scenes.find(s => s.id === q.scene); if (!sc) throw new Error(`practice.json question ${i + 1}: unknown scene ${q.scene}`); q.t = sc.start; }
@@ -79,7 +87,7 @@ if (fs.existsSync('practice.json')) {
 }
 const pad = n => String(n).padStart(3, '0');
 for (const [i, sl] of slides.entries()) { fs.writeFileSync(`slides/${pad(i + 1)}.jpg`, Buffer.from(sl.img.split(',')[1], 'base64')); sl.img = `slides/${pad(i + 1)}.jpg`; }
-const data = {total: TL.total, chapters: TL.scenes.map((s, i) => ({id: s.id, n: i, title: s.title, zh: s.zh, t: s.start})), slides, code, practice};
+const data = {total: TL.total, chapters: TL.scenes.map((s, i) => ({id: s.id, n: i, title: s.title, zh: s.zh, t: s.start})), slides, code, practice, practiceKind, sections};
 fs.writeFileSync('slides.json', JSON.stringify(data, null, 1));
 fs.writeFileSync('slides.html', fs.readFileSync('slides_page.html', 'utf8').replace('/*SLIDES*/null', JSON.stringify(data)));
 if (PDF) {
@@ -92,6 +100,6 @@ if (PDF) {
   await p.pdf({path: 'slides.pdf', format: 'A4', landscape: true, printBackground: true, preferCSSPageSize: true});
 }
 const beats = TL.scenes.reduce((n, s) => n + s.beats.length, 0);
-console.log(`${slides.length} slides from ${beats} beats (min-diff ${MIN_DIFF}), ${code.length} code excerpts, ${practice ? practice.length + ' practice questions' : 'no practice.json'}` + (PDF ? ' → slides.html + slides.pdf' : ' → slides.html'));
+console.log(`${slides.length} slides from ${beats} beats (min-diff ${MIN_DIFF}), ${code.length} code excerpts, ${practice ? practice.length + ' practice questions' : 'no practice.json'}${sections ? ', paper map of ' + sections.length + ' sections' : ''}` + (PDF ? ' → slides.html + slides.pdf' : ' → slides.html'));
 console.log(errs.length ? 'ERRORS:\n' + [...new Set(errs)].join('\n') : 'no page errors');
 await b.close();

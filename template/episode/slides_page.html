@@ -142,6 +142,7 @@ h1{font-size:clamp(32px,4.4vw,52px); font-weight:600; letter-spacing:-.03em; lin
   <nav class="toc" id="toc" aria-label="章节" data-en-label="Chapters"></nav>
   <main id="chapters" style="display:flex; flex-direction:column; gap:36px"></main>
   <section class="extra" id="code-index" hidden></section>
+  <section class="extra" id="paper-map" hidden></section>
   <section class="extra" id="practice" hidden></section>
 </div>
 <script>
@@ -183,20 +184,29 @@ if (DATA.code && DATA.code.length) {
     <td>${[c.t, ...c.again].map(play).join('')}</td></tr>`; }).join('')}
   </tbody></table></div>`;
 }
+// paper map (paper-style courses): which part of the paper each part of the episode covers
+if (DATA.sections && DATA.sections.length) {
+  $('#paper-map').hidden = false;
+  $('#paper-map').innerHTML = `<header><h2>${L2('本集对应原文', 'Paper map')}</h2><small>${L2('这一集讲到的原文章节和图表，以及视频里讲到它的地方。对照原文读，最快。', 'The sections and figures of the paper this episode covers, and where the video covers them. Read them side by side.')}</small></header>
+  <div class="tile"><table class="cix"><thead><tr><th>${L2('原文', 'Paper')}</th><th>${L2('本集讲了什么', 'What the episode covers')}</th><th>${L2('视频', 'Video')}</th></tr></thead><tbody>
+  ${DATA.sections.map(x => `<tr><td class="f"><b>${esc(x.sec)}</b></td><td>${esc(PRINT ? x.what[0] + ' / ' + x.what[1] : L(x.what[0], x.what[1]))}</td><td>${x.t != null ? play(x.t) : ''}</td></tr>`).join('')}
+  </tbody></table></div>`;
+}
 // practice: the video's guess-first questions plus new ones, each with its answer and what it rests on
+const PAPER = DATA.practiceKind === 'paper';
 if (DATA.practice && DATA.practice.length) {
   const two = ([zh, en]) => PRINT ? `<div class="a">${esc(zh)}</div><div class="b">${esc(en)}</div>` : `<div class="a">${esc(L(zh, en))}</div><div class="b">${esc(EN ? zh : en)}</div>`;
   $('#practice').hidden = false;
-  $('#practice').innerHTML = `<header><h2>${L2('练习', 'Practice')}</h2><small>${L2('先自己答，再看答案。每个答案都写了依据：源码行，或者真实运行。', 'Answer first, then open the answer. Each one says what it rests on: source lines or a real run.')}</small></header>
+  $('#practice').innerHTML = `<header><h2>${L2('练习', 'Practice')}</h2><small>${PAPER ? L2('先自己答，再看答案。每个答案都写了依据：原文的章节、图表，或者手算。', 'Answer first, then open the answer. Each one says what it rests on: a section or figure of the paper, or a hand calculation.') : L2('先自己答，再看答案。每个答案都写了依据：源码行，或者真实运行。', 'Answer first, then open the answer. Each one says what it rests on: source lines or a real run.')}</small></header>
   <div class="qs">${DATA.practice.map((q, i) => `<article class="q">
-    <div class="meta"><span class="num">${L2(`第 ${i + 1} 题`, `Q${i + 1}`)}</span><span class="chip ${q.scene ? '' : 'new'}">${q.scene ? L2('视频里的题', 'From the video') : L2('新题', 'New')}</span>${q.reasoned ? `<span class="chip reasoned">${L2('按代码推演', 'Worked out from the code')}</span>` : ''}${q.scene && q.t != null ? play(q.t) : ''}</div>
+    <div class="meta"><span class="num">${L2(`第 ${i + 1} 题`, `Q${i + 1}`)}</span><span class="chip ${q.scene && !q.new ? '' : 'new'}">${q.scene && !q.new ? L2('视频里的题', 'From the video') : L2('新题', 'New')}</span>${q.reasoned ? `<span class="chip reasoned">${PAPER ? L2('按原文推演', 'Worked out from the paper') : L2('按代码推演', 'Worked out from the code')}</span>` : ''}${q.scene && q.t != null ? play(q.t) : ''}</div>
     <div class="ask">${PRINT ? `${esc(q.q[0])}<small>${esc(q.q[1])}</small>` : `${esc(L(q.q[0], q.q[1]))}<small>${esc(EN ? q.q[0] : q.q[1])}</small>`}</div>
     <details${PRINT ? ' open' : ''}><summary>${L2('看答案', 'Show answer')}</summary><div class="ans">${two(q.a)}
       <div class="why"><span class="lab">${L2('依据', 'Evidence')}</span>${esc(PRINT ? q.why[0] + ' / ' + q.why[1] : L(q.why[0], q.why[1]))}
       ${(q.src || []).length ? `<div style="margin-top:6px">${q.src.map(x => `<code>${esc(x)}</code>`).join(' ')}</div>` : ''}${q.run ? `<div style="margin-top:6px"><code>${esc(q.run)}</code></div>` : ''}</div></div></details>
   </article>`).join('')}</div>`;
 }
-$('#toc').insertAdjacentHTML('beforeend', (DATA.code && DATA.code.length ? `<a href="#code-index">${L('代码索引', 'Code index')}</a>` : '') + (DATA.practice && DATA.practice.length ? `<a href="#practice">${L('练习', 'Practice')}</a>` : ''));
+$('#toc').insertAdjacentHTML('beforeend', (DATA.code && DATA.code.length ? `<a href="#code-index">${L('代码索引', 'Code index')}</a>` : '') + (DATA.sections && DATA.sections.length ? `<a href="#paper-map">${L('本集对应原文', 'Paper map')}</a>` : '') + (DATA.practice && DATA.practice.length ? `<a href="#practice">${L('练习', 'Practice')}</a>` : ''));
 document.addEventListener('click', e => {
   const img = e.target.closest('.slide img'); if (!img) return;
   const z = document.createElement('div'); z.className = 'zoom'; z.innerHTML = `<img src="${img.src}" alt="">`; z.onclick = () => z.remove(); document.body.append(z);
