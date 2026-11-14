@@ -66,15 +66,21 @@ const fmtInt = n => Math.round(n).toLocaleString('en-US');
 function knots(t, ks){ if (t <= ks[0][0]) return ks[0][1]; for (let i=1;i<ks.length;i++) if (t <= ks[i][0]) return lerp(ks[i-1][1], ks[i][1], (t - ks[i-1][0])/(ks[i][0] - ks[i-1][0])); return ks[ks.length-1][1]; }
 
 /* ---------- cue: time of a word inside a narration line ----------
-   cue(i, '二楼') → seconds (scene-local) when line i reaches '二楼', estimated by character position in the line.
+   cue(i, '二楼') or cue(i, 'inbox') → seconds (scene-local) when line i reaches that word, estimated by character position
+   in the spoken line: the English text with English narration (NARRATION, from episode.json via build.py), the Chinese
+   with Chinese narration; a word found only in the other language falls back to its relative position there.
    Lets an element land on the word that names it, not just at the start of the line. */
 var CUR = null;   // current scene object from timeline.json, set by render()
+var NARRATION = '__NARRATION__';   // 'en' | 'zh', filled in by build.py
 function cue(i, word, lead = .15){
   const bt = CUR.beats[i]; if (!word) return bt.start;
-  const k = bt.zh.indexOf(word); const sp = bt.speech ?? bt.dur; if (k < 0){ console.error(`cue miss: ${CUR.id} line ${i} '${word}'`); return bt.start; }
-  const wt = ch => /[\u4e00-\u9fff]/.test(ch) ? 1 : /[0-9]/.test(ch) ? 1.3 : /[A-Za-z]/.test(ch) ? .4 : /[，。：；、？！]/.test(ch) ? 1.6 : ch === ' ' ? .15 : .5;
+  const sp = bt.speech ?? bt.dur;
+  const order = NARRATION === 'en' ? [bt.text, bt.zh] : [bt.zh, bt.text];
+  const src = order.find(x => x && x.indexOf(word) >= 0); if (!src){ console.error(`cue miss: ${CUR.id} line ${i} '${word}'`); return bt.start; }
+  const k = src.indexOf(word);
+  const wt = ch => /[\u4e00-\u9fff]/.test(ch) ? 1 : /[0-9]/.test(ch) ? 1.3 : /[A-Za-z]/.test(ch) ? .4 : /[，。：；、？！]/.test(ch) ? 1.6 : /[,.;:?!]/.test(ch) ? .9 : ch === ' ' ? .15 : .5;
   const sum = s => [...s].reduce((a, ch) => a + wt(ch), 0);
-  return bt.start + sp * sum(bt.zh.slice(0, k)) / sum(bt.zh) - lead;
+  return bt.start + sp * sum(src.slice(0, k)) / sum(src) - lead;
 }
 const lineEnd = i => CUR.beats[i].start + (CUR.beats[i].speech ?? CUR.beats[i].dur);
 
@@ -298,9 +304,10 @@ function cross(x, y, s, color = C.stamp, a = 1){ if (a <= 0) return; ctx.save();
 function guessCard(x, y, w, lines, a, o = {}){
   if (a <= 0) return; const sz = o.size || 50, h = 150 + lines.length*(sz + 18);
   card(x, y, w, h, {alpha:a, tilt:o.tilt ?? -.6});
-  text('你猜', x + 50, y + 58, {size:24, font:F.sans, weight:700, color:C.coral, align:'left', alpha:a});
-  lines.forEach((s, i) => text(s, x + 50, y + 120 + i*(sz + 18), {size:sz, font:F.zhSerif, weight:900, align:'left', alpha:a}));
-  text('先停下来想一想', x + 50, y + h - 34, {size:21, font:F.sans, weight:400, color:C.mute, align:'left', alpha:a});
+  const en = NARRATION === 'en';   // English narration: English label, hint and serif question
+  text(o.label || (en ? 'Your guess' : '你猜'), x + 50, y + 58, {size:24, font:F.sans, weight:700, color:C.coral, align:'left', alpha:a});
+  lines.forEach((s, i) => text(s, x + 50, y + 120 + i*(sz + 18), en ? {size:sz, font:F.serif, weight:600, align:'left', alpha:a} : {size:sz, font:F.zhSerif, weight:900, align:'left', alpha:a}));
+  text(o.hint || (en ? 'Pause and think before the answer' : '先停下来想一想'), x + 50, y + h - 34, {size:21, font:F.sans, weight:400, color:C.mute, align:'left', alpha:a});
 }
 
 /* ---------- quoted footage and figures from the original (media.py → media_data.js) ----------

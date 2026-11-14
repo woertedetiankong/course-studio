@@ -2,7 +2,7 @@
    Chrome: chapter header (with the progress hairline), corner building, subtitles
    ========================================================= */
 var NOSUBS = location.search.includes('nosubs');
-// scenes.js may define: EPISODE = {n, zh}; NOHEADER = [scene ids without the chapter header];
+// scenes.js may define: EPISODE = {n, zh, en}; NOHEADER = [scene ids without the chapter header];
 // CORNER = {sceneId: {...}} + drawCorner(cfg, alpha): the corner copy of the series' shared picture, drawn top-right
 // in those scenes (cfg is the scene's entry, e.g. {lit:[1], label:'F2 · 记忆笔记'}; drawCorner lives with the picture,
 // in <course>/shared/*.part.js or the episode's scenes.js). Keep it inside x 1560–1800, y 60–140.
@@ -11,10 +11,16 @@ function chrome(t, si, s, lt){
   const head = !(typeof NOHEADER !== 'undefined' && NOHEADER.includes(s.id));
   if (head){
     const n = String(si + (typeof NOHEADER !== 'undefined' ? 1 - NOHEADER.filter(id => TL.scenes.findIndex(x => x.id === id) < si).length : 1)).padStart(2, '0');
-    if (typeof EPISODE !== 'undefined') text(`第 ${EPISODE.n} 集 · ${EPISODE.zh}`, 120, 46, {size:18, font:F.sans, weight:500, color:C.mute, align:'left', alpha:a});
+    const EN = NARRATION === 'en';   // the spoken language leads: header, then subtitles
+    if (typeof EPISODE !== 'undefined') text(EN ? `Episode ${EPISODE.n} · ${EPISODE.en || EPISODE.zh}` : `第 ${EPISODE.n} 集 · ${EPISODE.zh}`, 120, 46, {size:18, font:F.sans, weight:500, color:C.mute, align:'left', alpha:a});
     text(n, 120, 96, {size:24, font:F.mono, weight:600, color:C.L2, align:'left', alpha:a});
-    text(s.zh, 168, 94, {size:46, font:F.zhSerif, weight:900, align:'left', alpha:a});
-    text(s.title, 168 + measure(s.zh, {size:46, font:F.zhSerif, weight:900}) + 22, 100, {size:26, font:F.serif, italic:true, color:C.mute, align:'left', alpha:a});
+    if (EN){
+      text(s.title, 168, 94, {size:46, font:F.serif, weight:600, align:'left', alpha:a});
+      text(s.zh, 168 + measure(s.title, {size:46, font:F.serif, weight:600}) + 22, 98, {size:24, font:F.sans, weight:500, color:C.mute, align:'left', alpha:a});
+    } else {
+      text(s.zh, 168, 94, {size:46, font:F.zhSerif, weight:900, align:'left', alpha:a});
+      text(s.title, 168 + measure(s.zh, {size:46, font:F.zhSerif, weight:900}) + 22, 100, {size:26, font:F.serif, italic:true, color:C.mute, align:'left', alpha:a});
+    }
   }
   // the hairline under the header doubles as the progress bar
   hline(120, 1800, 148, C.rule, 1.5);
@@ -22,16 +28,25 @@ function chrome(t, si, s, lt){
   // corner copy of the shared picture, with this chapter's part lit
   const cfg = typeof CORNER !== 'undefined' ? CORNER[s.id] : undefined;
   if (cfg && typeof drawCorner === 'function') drawCorner(cfg, a);
-  // subtitles: Chinese (spoken) on top, English beneath in italic serif
+  // subtitles: the spoken language on top, the other beneath (zh narration: Chinese 40 px + English italic 26 px;
+  // en narration: English 38 px + Chinese 27 px)
   const bt = !NOSUBS && s.beats.find(bb => lt >= bb.start - .05 && lt < bb.start + (bb.speech ?? bb.dur) + .5);
   if (bt){
     const end = bt.start + (bt.speech ?? bt.dur);
     const sa = ramp(lt, bt.start - .05, bt.start + .15) * (1 - ramp(lt, end + .3, end + .5));
-    const zo = {size:40, font:F.sans, weight:500}, eo2 = {size:26, font:F.serif, italic:true};
-    const zl = wrapZh(bt.zh, 1500, zo), el = wrapWords(bt.text, 1500, eo2);
-    const y0 = 1000 - (el.length - 1)*32 - 52 - (zl.length - 1)*52;
-    zl.forEach((l, i) => text(l, 960, y0 + i*52, {...zo, alpha:sa}));
-    el.forEach((l, i) => text(l, 960, y0 + (zl.length - 1)*52 + 52 + i*32, {...eo2, color:C.mute, alpha:sa}));
+    if (NARRATION === 'en'){
+      const eo1 = {size:38, font:F.sans, weight:500}, zo2 = {size:27, font:F.sans, weight:400};
+      const el = wrapWords(bt.text, 1500, eo1), zl = wrapZh(bt.zh, 1600, zo2);
+      const y0 = 1002 - (zl.length - 1)*36 - 50 - (el.length - 1)*48;
+      el.forEach((l, i) => text(l, 960, y0 + i*48, {...eo1, alpha:sa}));
+      zl.forEach((l, i) => text(l, 960, y0 + (el.length - 1)*48 + 50 + i*36, {...zo2, color:C.mute, alpha:sa}));
+    } else {
+      const zo = {size:40, font:F.sans, weight:500}, eo2 = {size:26, font:F.serif, italic:true};
+      const zl = wrapZh(bt.zh, 1500, zo), el = wrapWords(bt.text, 1500, eo2);
+      const y0 = 1000 - (el.length - 1)*32 - 52 - (zl.length - 1)*52;
+      zl.forEach((l, i) => text(l, 960, y0 + i*52, {...zo, alpha:sa}));
+      el.forEach((l, i) => text(l, 960, y0 + (zl.length - 1)*52 + 52 + i*32, {...eo2, color:C.mute, alpha:sa}));
+    }
   }
 }
 
