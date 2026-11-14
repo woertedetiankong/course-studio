@@ -29,17 +29,17 @@ function chrome(t, si, s, lt){
   const cfg = typeof CORNER !== 'undefined' ? CORNER[s.id] : undefined;
   if (cfg && typeof drawCorner === 'function') drawCorner(cfg, a);
   // subtitles: the spoken language on top, the other beneath (zh narration: Chinese 40 px + English italic 26 px;
-  // en narration: English 38 px + Chinese 27 px)
+  // en narration: English 38 px + Chinese 30 px in ink2, so Chinese viewers can read it)
   const bt = !NOSUBS && s.beats.find(bb => lt >= bb.start - .05 && lt < bb.start + (bb.speech ?? bb.dur) + .5);
   if (bt){
     const end = bt.start + (bt.speech ?? bt.dur);
     const sa = ramp(lt, bt.start - .05, bt.start + .15) * (1 - ramp(lt, end + .3, end + .5));
     if (NARRATION === 'en'){
-      const eo1 = {size:38, font:F.sans, weight:500}, zo2 = {size:27, font:F.sans, weight:400};
+      const eo1 = {size:38, font:F.sans, weight:500}, zo2 = {size:30, font:F.sans, weight:500};
       const el = wrapWords(bt.text, 1500, eo1), zl = wrapZh(bt.zh, 1600, zo2);
-      const y0 = 1002 - (zl.length - 1)*36 - 50 - (el.length - 1)*48;
+      const y0 = 1002 - (zl.length - 1)*40 - 52 - (el.length - 1)*48;
       el.forEach((l, i) => text(l, 960, y0 + i*48, {...eo1, alpha:sa}));
-      zl.forEach((l, i) => text(l, 960, y0 + (el.length - 1)*48 + 50 + i*36, {...zo2, color:C.mute, alpha:sa}));
+      zl.forEach((l, i) => text(l, 960, y0 + (el.length - 1)*48 + 52 + i*40, {...zo2, color:C.ink2, alpha:sa}));
     } else {
       const zo = {size:40, font:F.sans, weight:500}, eo2 = {size:26, font:F.serif, italic:true};
       const zl = wrapZh(bt.zh, 1500, zo), el = wrapWords(bt.text, 1500, eo2);
